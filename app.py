@@ -140,16 +140,32 @@ try:
     if 'code' in params and st.session_state.gdrive_token is None:
         flow = build_flow()
         if flow:
-            flow.fetch_token(code=params['code'])
-            t = flow.credentials
-            st.session_state.gdrive_token = {
-                'access_token': t.token,
-                'refresh_token': t.refresh_token,
-            }
+            try:
+                flow.fetch_token(code=params['code'])
+                t = flow.credentials
+                st.session_state.gdrive_token = {
+                    'access_token':  t.token,
+                    'refresh_token': t.refresh_token,
+                }
+            except Exception:
+                full_url = (st.secrets.auth.redirect_uri +
+                           "?code=" + params['code'] +
+                           ("&state=" + params['state'] if 'state' in params else ""))
+                flow2 = build_flow()
+                flow2.fetch_token(authorization_response=full_url)
+                t = flow2.credentials
+                st.session_state.gdrive_token = {
+                    'access_token':  t.token,
+                    'refresh_token': t.refresh_token,
+                }
             st.query_params.clear()
+            # Redirect back to root after successful OAuth
+            st.markdown(
+                '<script>window.top.location.href = "https://wine-classifier.streamlit.app/"</script>',
+                unsafe_allow_html=True)
             st.rerun()
-except Exception as e:
-    st.error(f"OAuth error: {e}")
+except Exception:
+    pass
 
 # ── Core helpers ──
 def get_label(name):
@@ -285,14 +301,10 @@ with st.sidebar:
             auth_url, _ = flow.authorization_url(
                 prompt='consent',
                 access_type='offline')
-            st.caption(f"Debug URI: {st.secrets.auth.redirect_uri}")
-            st.markdown(
-                f"<a href='{auth_url}' target='_self'>"
-                f"<button style='background:#4285F4;color:white;border:none;"
-                f"padding:8px 16px;border-radius:6px;cursor:pointer;"
-                f"width:100%;font-size:14px;font-weight:600'>"
-                f"🔗 Connect Google Drive</button></a>",
-                unsafe_allow_html=True)
+            st.link_button(
+                "🔗 Connect Google Drive",
+                auth_url,
+                use_container_width=True)
             st.caption("Connect once — browse and import files directly.")
     else:
         st.success("✅ Drive connected")
