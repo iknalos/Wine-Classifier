@@ -355,6 +355,7 @@ with st.sidebar:
         <p>Hyperspectral Analysis</p>
     </div>
     """, unsafe_allow_html=True)
+    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
     step_icons  = ["📁","🎯","🤖","🔍"]
     step_labels = ["1  Upload Data","2  Select ROI","3  Train Model","4  Predict"]
@@ -494,6 +495,15 @@ if st.session_state.step == 0:
         with tab_local:
             zf = st.file_uploader("Drop your training ZIP here",
                                   type=['zip'], label_visibility='collapsed')
+            if not st.session_state.tiff_files and not zf:
+                st.markdown("""
+                <div style='text-align:center;padding:28px 16px;margin-top:4px;
+                     background:rgba(255,255,255,0.01);
+                     border:1px dashed rgba(255,255,255,0.07);border-radius:12px'>
+                    <div style='font-size:32px;margin-bottom:8px'>📂</div>
+                    <div style='font-size:13px;font-weight:600;color:#aaa;margin-bottom:4px'>No files uploaded yet</div>
+                    <div style='font-size:11px;color:#3a3a5c'>Drag & drop a ZIP or click Upload above</div>
+                </div>""", unsafe_allow_html=True)
         with tab_drive:
             if st.session_state.gdrive_token is None:
                 st.info("🔗 Connect Google Drive from the sidebar first, then browse your folders here.")
@@ -670,21 +680,6 @@ if st.session_state.step == 0:
                         added.append(bname)
         if added:
             st.success(f"✅ Added {len(added)} files")
-
-    # Empty state
-    if not st.session_state.tiff_files:
-        st.markdown("""
-        <div style='text-align:center;padding:40px 20px;margin-top:8px;
-             background:rgba(255,255,255,0.01);border:1px dashed rgba(255,255,255,0.08);
-             border-radius:16px'>
-            <div style='font-size:48px;margin-bottom:12px'>📂</div>
-            <div style='font-size:15px;font-weight:600;color:#fff;margin-bottom:6px'>No files uploaded yet</div>
-            <div style='font-size:12px;color:#3a3a5c;max-width:280px;margin:0 auto'>
-                Upload a ZIP containing your labelled TIFF images to get started.
-                Minimum 2 images per wine type recommended.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
 
     if st.session_state.tiff_files:
         st.markdown("### 📋 Uploaded Files")
