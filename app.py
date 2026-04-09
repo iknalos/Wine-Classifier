@@ -133,15 +133,16 @@ with st.sidebar:
 
     # ── Google Drive Panel ──
     st.markdown("### ☁️ Google Drive")
-    gcreds = get_google_creds()
+    try:
+        gcreds = get_google_creds()
 
-    if not gcreds:
-        if not GOOGLE_AVAILABLE:
-            st.warning(f"⚠️ Google libraries not installed: {GOOGLE_IMPORT_ERROR}")
-        else:
-            st.caption("Add Google credentials in Streamlit secrets to enable Drive.")
+        if not gcreds:
+            if not GOOGLE_AVAILABLE:
+                st.warning(f"⚠️ Google libraries not installed.")
+            else:
+                st.caption("Add Google credentials in Streamlit secrets to enable Drive.")
 
-    elif st.session_state.gdrive_token is None:
+        elif st.session_state.gdrive_token is None:
         # Not logged in
         flow = build_flow()
         auth_url, _ = flow.authorization_url(
