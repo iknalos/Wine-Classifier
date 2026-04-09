@@ -464,13 +464,15 @@ if st.session_state.step == 0:
             lbl = st.session_state.file_labels.get(name,'Unknown')
             label_counts[lbl] = label_counts.get(lbl,0)+1
 
-        chips = " ".join([
-            f"<span style='background:{WINE_COLORS.get(l,\"#555\")};color:white;"
-            f"padding:4px 12px;border-radius:20px;font-size:13px;font-weight:bold'>"
-            f"{l}: {c}</span>"
-            for l,c in sorted(label_counts.items())
-        ])
-        st.markdown(chips, unsafe_allow_html=True)
+        chips = []
+        for l, c in sorted(label_counts.items()):
+            bg = WINE_COLORS.get(l, '#555')
+            chips.append(
+                f"<span style='background:{bg};color:white;"
+                f"padding:4px 12px;border-radius:20px;"
+                f"font-size:13px;font-weight:bold'>{l}: {c}</span>"
+            )
+        st.markdown(" ".join(chips), unsafe_allow_html=True)
         st.markdown("")
 
         for name,_ in st.session_state.tiff_files:
