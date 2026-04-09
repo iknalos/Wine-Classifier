@@ -6,8 +6,6 @@ matplotlib
 scipy
 joblib
 xgboost
-google-auth==2.22.0
-google-auth-oauthlib==0.8.0
+google-auth
 google-api-python-client
-requests-oauthlib==1.3.1
 requests
