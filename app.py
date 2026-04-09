@@ -195,7 +195,7 @@ def can_advance(to_step):
 #  SIDEBAR
 # ============================================================
 with st.sidebar:
-   st.write("Secrets:", list(st.secrets.keys()))
+    st.write("Secrets:", list(st.secrets.keys()))
     if "auth" in st.secrets:
         st.write("Auth keys:", list(st.secrets["auth"].keys()))
         st.write("Google available:", GOOGLE_AVAILABLE)
