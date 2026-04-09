@@ -195,13 +195,15 @@ def can_advance(to_step):
 #  SIDEBAR
 # ============================================================
 with st.sidebar:
-    # TEMPORARY DEBUG — remove after fixing
-    st.write("Secrets:", list(st.secrets.keys()))
+   st.write("Secrets:", list(st.secrets.keys()))
     if "auth" in st.secrets:
         st.write("Auth keys:", list(st.secrets["auth"].keys()))
         st.write("Google available:", GOOGLE_AVAILABLE)
+        creds = get_google_creds()
+        st.write("Creds result:", creds)
     else:
         st.write("❌ No [auth] section")
+    
     st.markdown("## 🍷 Wine Classifier")
     st.markdown("---")
 
