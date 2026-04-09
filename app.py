@@ -350,15 +350,8 @@ def can_advance(to_step):
 with st.sidebar:
     st.markdown("""
     <div class='sidebar-logo'>
-        <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-bottom:10px;filter:drop-shadow(0 4px 16px rgba(233,69,96,0.6))">
-            <path d="M28 6 C28 6 14 6 14 20 C14 30 22 35 27 36.5 L27 46 L20 46 L20 50 L36 50 L36 46 L29 46 L29 36.5 C34 35 42 30 42 20 C42 6 28 6 28 6 Z" fill="url(#wg)" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
-            <defs>
-                <linearGradient id="wg" x1="14" y1="6" x2="42" y2="50" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stop-color="#ff6b8a"/>
-                    <stop offset="100%" stop-color="#c0213e"/>
-                </linearGradient>
-            </defs>
-        </svg>
+        <div style='font-size:72px;line-height:1;margin-bottom:10px;
+             filter:drop-shadow(0 4px 16px rgba(233,69,96,0.5))'>🍷</div>
         <h1>Wine Classifier</h1>
         <p>Hyperspectral Analysis</p>
     </div>
