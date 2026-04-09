@@ -4,7 +4,8 @@
 # ============================================================
 
 import streamlit as st
-import os, json, zipfile, io, tempfile
+import os, zipfile, io
+import urllib.parse
 import tifffile
 import numpy as np
 import matplotlib.pyplot as plt
@@ -17,6 +18,7 @@ from sklearn.metrics import confusion_matrix
 from sklearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
 import joblib
+import requests as req_lib
 
 try:
     from googleapiclient.discovery import build
@@ -25,9 +27,6 @@ try:
     GOOGLE_AVAILABLE = True
 except ImportError:
     GOOGLE_AVAILABLE = False
-
-import urllib.parse
-import requests as req_lib
 
 # ── Page config ──
 st.set_page_config(page_title="🍷 Wine Classifier", page_icon="🍷",
@@ -49,7 +48,6 @@ st.markdown("""
 TILE_H = TILE_W = 9
 N_BANDS    = 81
 PATCH_SIZE = 30
-SCOPES     = ['https://www.googleapis.com/auth/drive.readonly']
 WINE_COLORS = {
     'Dao':'#4169E1','LN':'#DC143C','LO':'#228B22',
     'ODC':'#FF8C00','PN':'#800080','PO':'#FF1493'
@@ -61,7 +59,7 @@ defaults = {
     'rois': None, 'ref_raw': None, 'model': None,
     'training_done': False, 'gdrive_token': None,
     'gdrive_folder_id': 'root', 'gdrive_folder_name': 'My Drive',
-    'gdrive_breadcrumb': [('root','My Drive')],
+    'gdrive_breadcrumb': [('root', 'My Drive')],
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -82,29 +80,38 @@ def get_google_creds():
     except Exception:
         return None
 
-def build_flow():
+def get_auth_url():
+    """Build Google OAuth URL manually — no PKCE"""
     c = get_google_creds()
     if not c:
         return None
-    try:
-        # Use redirect_uri exactly from secrets — no hardcoding
-        redirect = c["redirect_uri"].strip()
-        cfg = {"web": {
-            "client_id": c["client_id"],
-            "client_secret": c["client_secret"],
-            "redirect_uris": [redirect],
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-        }}
-        return Flow.from_client_config(cfg, scopes=SCOPES,
-                                       redirect_uri=redirect)
-    except Exception as e:
-        st.error(f"Flow error: {e}")
+    params = {
+        'client_id':     c['client_id'],
+        'redirect_uri':  c['redirect_uri'],
+        'response_type': 'code',
+        'scope':         'https://www.googleapis.com/auth/drive.readonly',
+        'access_type':   'offline',
+        'prompt':        'consent',
+    }
+    return 'https://accounts.google.com/o/oauth2/auth?' + urllib.parse.urlencode(params)
+
+def fetch_token(code):
+    """Exchange auth code for access token — no PKCE"""
+    c = get_google_creds()
+    if not c:
         return None
+    resp = req_lib.post('https://oauth2.googleapis.com/token', data={
+        'code':          code,
+        'client_id':     c['client_id'],
+        'client_secret': c['client_secret'],
+        'redirect_uri':  c['redirect_uri'],
+        'grant_type':    'authorization_code',
+    })
+    return resp.json()
 
 def get_drive_service():
     token = st.session_state.gdrive_token
-    if not token:
+    if not token or not GOOGLE_AVAILABLE:
         return None
     c = get_google_creds()
     creds = Credentials(
@@ -113,9 +120,9 @@ def get_drive_service():
         token_uri="https://oauth2.googleapis.com/token",
         client_id=c['client_id'],
         client_secret=c['client_secret'],
-        scopes=SCOPES
+        scopes=['https://www.googleapis.com/auth/drive.readonly']
     )
-    return build('drive','v3',credentials=creds)
+    return build('drive', 'v3', credentials=creds)
 
 def list_drive_folder(service, folder_id='root'):
     q = (f"'{folder_id}' in parents and trashed=false and "
@@ -141,7 +148,7 @@ try:
     params = st.query_params
     if 'code' in params and st.session_state.gdrive_token is None:
         token_data = fetch_token(params['code'])
-        if 'access_token' in token_data:
+        if token_data and 'access_token' in token_data:
             st.session_state.gdrive_token = {
                 'access_token':  token_data['access_token'],
                 'refresh_token': token_data.get('refresh_token'),
@@ -149,7 +156,8 @@ try:
             st.query_params.clear()
             st.rerun()
         else:
-            st.sidebar.error(f"Token error: {token_data.get('error_description', token_data)}")
+            err = token_data.get('error_description', str(token_data)) if token_data else 'Unknown'
+            st.sidebar.error(f"Token error: {err}")
 except Exception as e:
     st.sidebar.error(f"OAuth error: {e}")
 
@@ -183,7 +191,7 @@ def extract_patches(channels, x0, y0, x1, y1, px=PATCH_SIZE):
     return feats
 
 def disp_img(raw):
-    vmin, vmax = np.percentile(raw,1), np.percentile(raw,99)
+    vmin, vmax = np.percentile(raw, 1), np.percentile(raw, 99)
     return np.clip((raw-vmin)/(vmax-vmin+1e-9), 0, 1)
 
 def can_advance(to_step):
@@ -199,7 +207,6 @@ with st.sidebar:
     st.markdown("## 🍷 Wine Classifier")
     st.markdown("---")
 
-    # Navigation
     step_icons  = ["📁","🎯","🤖","🔍"]
     step_labels = ["1  Upload Data","2  Select ROI","3  Train Model","4  Predict"]
     step_done   = [len(st.session_state.tiff_files)>0,
@@ -219,7 +226,6 @@ with st.sidebar:
     st.progress(n_done/3)
     st.caption(f"Progress: {n_done}/3 steps")
 
-    # Uploaded files list
     if st.session_state.tiff_files:
         st.markdown("---")
         st.markdown("**📂 Training Files**")
@@ -235,27 +241,26 @@ with st.sidebar:
                 unsafe_allow_html=True)
             if c2.button("✕", key=f"del_{i}", help=f"Remove {name}"):
                 st.session_state.tiff_files.pop(i)
-                st.session_state.file_labels.pop(name,None)
+                st.session_state.file_labels.pop(name, None)
                 if not st.session_state.tiff_files:
                     st.session_state.rois = None
                     st.session_state.training_done = False
                     st.session_state.model = None
                 st.rerun()
         if st.button("🗑️ Remove All", use_container_width=True):
-            st.session_state.tiff_files   = []
-            st.session_state.file_labels  = {}
-            st.session_state.rois         = None
+            st.session_state.tiff_files    = []
+            st.session_state.file_labels   = {}
+            st.session_state.rois          = None
             st.session_state.training_done = False
-            st.session_state.model        = None
+            st.session_state.model         = None
             st.rerun()
 
-    # Model download/upload
     st.markdown("---")
     if st.session_state.training_done and st.session_state.model:
         buf = io.BytesIO()
-        joblib.dump({'model':st.session_state.model,
-                     'rois': st.session_state.rois,
-                     'patch_size':PATCH_SIZE}, buf)
+        joblib.dump({'model': st.session_state.model,
+                     'rois':  st.session_state.rois,
+                     'patch_size': PATCH_SIZE}, buf)
         st.download_button("💾 Download Model", buf.getvalue(),
                            "wine_classifier.pkl", use_container_width=True)
         if st.button("🗑️ Clear Model", use_container_width=True):
@@ -272,7 +277,7 @@ with st.sidebar:
         st.session_state.training_done = True
         st.success("✅ Model loaded!")
 
-    # Google Drive panel
+    # ── Google Drive panel ──
     st.markdown("---")
     st.markdown("### ☁️ Google Drive")
     gcreds = get_google_creds()
@@ -284,10 +289,8 @@ with st.sidebar:
     elif st.session_state.gdrive_token is None:
         auth_url = get_auth_url()
         if auth_url:
-            st.link_button(
-                "🔗 Connect Google Drive",
-                auth_url,
-                use_container_width=True)
+            st.link_button("🔗 Connect Google Drive",
+                           auth_url, use_container_width=True)
             st.caption("Connect once — browse and import files directly.")
     else:
         st.success("✅ Drive connected")
@@ -321,7 +324,7 @@ with st.sidebar:
                              key=f"fd_{folder['id']}",
                              use_container_width=True):
                     st.session_state.gdrive_breadcrumb.append(
-                        (folder['id'],folder['name']))
+                        (folder['id'], folder['name']))
                     st.session_state.gdrive_folder_id   = folder['id']
                     st.session_state.gdrive_folder_name = folder['name']
                     st.rerun()
@@ -342,11 +345,11 @@ with st.sidebar:
                         f"<span style='color:#888'>({size_kb}KB)</span></div>",
                         unsafe_allow_html=True)
                     if c2.button("➕", key=f"add_{f['id']}"):
-                        with st.spinner(f"Downloading..."):
+                        with st.spinner("Downloading..."):
                             data = download_drive_file(service, f['id'])
                             existing = [n for n,_ in st.session_state.tiff_files]
                             if f['name'] not in existing:
-                                st.session_state.tiff_files.append((f['name'],data))
+                                st.session_state.tiff_files.append((f['name'], data))
                                 st.session_state.file_labels[f['name']] = lbl
                                 st.toast(f"✅ Added {f['name']}")
                                 st.rerun()
@@ -359,8 +362,8 @@ with st.sidebar:
                         added = 0
                         for i,f in enumerate(tiffs):
                             if f['name'] not in existing:
-                                data = download_drive_file(service,f['id'])
-                                st.session_state.tiff_files.append((f['name'],data))
+                                data = download_drive_file(service, f['id'])
+                                st.session_state.tiff_files.append((f['name'], data))
                                 st.session_state.file_labels[f['name']] = get_label(f['name'])
                                 added += 1
                             prog.progress((i+1)/len(tiffs))
@@ -468,8 +471,7 @@ if st.session_state.step == 0:
             chips.append(
                 f"<span style='background:{bg};color:white;"
                 f"padding:4px 12px;border-radius:20px;"
-                f"font-size:13px;font-weight:bold'>{l}: {c}</span>"
-            )
+                f"font-size:13px;font-weight:bold'>{l}: {c}</span>")
         st.markdown(" ".join(chips), unsafe_allow_html=True)
         st.markdown("")
 
@@ -535,7 +537,6 @@ elif st.session_state.step == 1:
     H, W = raw.shape
 
     st.caption(f"Reference: `{st.session_state.tiff_files[0][0]}`  |  {W}×{H} px")
-
     col_sliders, col_preview = st.columns([2,3])
 
     with col_sliders:
@@ -625,11 +626,9 @@ elif st.session_state.step == 2:
         1 image × 2 ROIs × ~20 patches = 40 samples
         3 images × 40 patches = 120 samples per wine type
         ```
-        **Leave-One-Image-Out validation:** trained on 5 images, tested on 1,
-        repeated 6 times — honest accuracy with no data leakage.
+        **Leave-One-Image-Out validation:** trained on 5 images, tested on 1, repeated 6 times.
         """)
 
-    # Model selection
     st.markdown("### 🧠 Classifier Selection")
     col_table, col_pick = st.columns([3,2])
 
@@ -649,15 +648,12 @@ elif st.session_state.step == 2:
     with col_pick:
         model_choice = st.radio("Select classifier:", [
             "⭐ Ensemble (SVM + RF + XGB)",
-            "SVM RBF",
-            "Random Forest",
-            "XGBoost"
-        ])
+            "SVM RBF", "Random Forest", "XGBoost"])
         descs = {
-            "Ensemble": "3 models vote together — most robust for small datasets. Proven best in peer-reviewed hyperspectral wine research.",
-            "SVM RBF":  "Excellent for high-dimensional spectral data. F1 up to 0.99 in grapevine HSI studies.",
-            "Random Forest": "Handles non-linear band interactions well. Resistant to overfitting.",
-            "XGBoost":  "Gradient boosting — catches patterns the other models may miss.",
+            "Ensemble":      "3 models vote together — most robust for small datasets.",
+            "SVM RBF":       "Excellent for high-dimensional spectral data. F1 up to 0.99.",
+            "Random Forest": "Handles non-linear band interactions. Resistant to overfitting.",
+            "XGBoost":       "Gradient boosting — catches patterns others may miss.",
         }
         key = "Ensemble" if "Ensemble" in model_choice else model_choice
         st.info(descs.get(key,""))
@@ -666,7 +662,7 @@ elif st.session_state.step == 2:
         st.success("✅ Model already trained. Retrain below or go to Step 4.")
 
     if st.button("🚀 Start Training", type="primary", use_container_width=True):
-        rois = st.session_state.rois
+        rois     = st.session_state.rois
         labelled = [(n,d) for n,d in st.session_state.tiff_files
                     if st.session_state.file_labels.get(n,'Unknown') != 'Unknown']
 
@@ -740,7 +736,6 @@ elif st.session_state.step == 2:
             plt.tight_layout()
             st.pyplot(fig2,use_container_width=True); plt.close(fig2)
 
-        # Build classifier
         try:
             from xgboost import XGBClassifier
             has_xgb = True
@@ -755,22 +750,22 @@ elif st.session_state.step == 2:
             if has_xgb:
                 ests.append(('xgb', XGBClassifier(n_estimators=100,random_state=42,
                                                    eval_metric='mlogloss',verbosity=0)))
-            clf = VotingClassifier(estimators=ests, voting='soft')
+            clf      = VotingClassifier(estimators=ests, voting='soft')
             clf_name = f"Ensemble (SVM + RF{' + XGB' if has_xgb else ''})"
         elif sel == "SVM RBF":
-            clf = SVC(kernel='rbf',C=10,gamma='scale',probability=True,random_state=42)
+            clf      = SVC(kernel='rbf',C=10,gamma='scale',probability=True,random_state=42)
             clf_name = "SVM with RBF Kernel"
         elif sel == "Random Forest":
-            clf = RandomForestClassifier(n_estimators=200,random_state=42)
+            clf      = RandomForestClassifier(n_estimators=200,random_state=42)
             clf_name = "Random Forest (200 trees)"
         else:
             if has_xgb:
-                clf = XGBClassifier(n_estimators=100,random_state=42,
-                                    eval_metric='mlogloss',verbosity=0)
+                clf      = XGBClassifier(n_estimators=100,random_state=42,
+                                         eval_metric='mlogloss',verbosity=0)
                 clf_name = "XGBoost"
             else:
-                clf = SVC(kernel='rbf',C=10,gamma='scale',
-                          probability=True,random_state=42)
+                clf      = SVC(kernel='rbf',C=10,gamma='scale',
+                               probability=True,random_state=42)
                 clf_name = "SVM RBF (XGBoost unavailable)"
 
         model = Pipeline([('scaler',StandardScaler()),('clf',clf)])
@@ -849,12 +844,7 @@ elif st.session_state.step == 3:
         3. All patch confidence scores are averaged into one final answer
 
         **Confidence guide:**
-        - **>90%** — very confident, strong spectral match
-        - **70–90%** — confident, minor variation
-        - **50–70%** — uncertain, consider recapturing under same conditions
-
-        **Patch Agreement** = % of patches that voted for the winning class.
-        100% = all patches agreed — very reliable result.
+        - **>90%** — very confident  |  **70–90%** — confident  |  **50–70%** — uncertain
         """)
 
     tab_zip, tab_single, tab_drive = st.tabs(["📦 ZIP","🖼️ Single TIFF","☁️ Google Drive"])
@@ -921,7 +911,6 @@ elif st.session_state.step == 3:
 
             prog2.empty()
 
-            # Grouped cards
             st.subheader("🗂️ Results by Wine Type")
             cols = st.columns(max(1,len(all_cls)))
             for ci,cls in enumerate(all_cls):
@@ -940,7 +929,6 @@ elif st.session_state.step == 3:
                             for r in matched
                         ]) + "</div>", unsafe_allow_html=True)
 
-            # Table
             st.subheader("📋 Detailed Results")
             st.dataframe([{
                 'File':r['file'],'Prediction':r['pred'],
@@ -949,7 +937,6 @@ elif st.session_state.step == 3:
                 'Patches':r['n_patches']
             } for r in results], use_container_width=True)
 
-            # Image grid
             st.subheader("🖼️ Image Overview")
             gcols = st.columns(min(3,len(results)))
             for i,r in enumerate(results):
@@ -968,7 +955,6 @@ elif st.session_state.step == 3:
                     ax.axis('off'); plt.tight_layout()
                     st.pyplot(fig,use_container_width=True); plt.close(fig)
 
-            # Confidence chart
             st.subheader("📊 Confidence Chart")
             fig_b,ax_b = plt.subplots(figsize=(max(10,len(results)*2),5))
             x = np.arange(len(results))
