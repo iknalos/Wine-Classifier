@@ -175,11 +175,16 @@ a[href*="github.com"] {display: none !important;}
     padding: 4px 12px; font-size: 12px; font-weight: 600;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: #0a0a0f; }
-::-webkit-scrollbar-thumb { background: #2a2a40; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #e94560; }
+/* Remove top padding */
+.stApp > header { height: 0px !important; }
+.block-container {
+    padding-top: 1.5rem !important;
+    padding-bottom: 1rem !important;
+    max-width: 1100px !important;
+}
+[data-testid="stSidebarContent"] {
+    padding-top: 1.5rem !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
