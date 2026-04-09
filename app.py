@@ -413,19 +413,114 @@ if st.session_state.step == 0:
             zf = st.file_uploader("Drop your training ZIP here",
                                   type=['zip'], label_visibility='collapsed')
         with tab_drive:
-            st.markdown("Share your ZIP as *Anyone with link*, paste the **file ID**:")
-            gid = st.text_input("Google Drive File ID",
-                                placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs")
-            if st.button("📥 Fetch from Drive", use_container_width=True) and gid:
-                with st.spinner("Downloading..."):
-                    try:
-                        import urllib.request
-                        url = f"https://drive.google.com/uc?export=download&id={gid}"
-                        with urllib.request.urlopen(url) as r:
-                            zf = io.BytesIO(r.read())
-                        st.success("✅ Downloaded!")
-                    except Exception as e:
-                        st.error(f"❌ {e}"); zf = None
+            if st.session_state.gdrive_token is None:
+                st.info("🔗 Connect Google Drive from the sidebar first, then browse your folders here.")
+            else:
+                # Folder browser inside Step 1
+                st.markdown("**📂 Browse your Google Drive:**")
+
+                # Breadcrumb
+                bc = st.session_state.gdrive_breadcrumb
+                st.caption("📂 " + " › ".join([n for _,n in bc]))
+
+                col_back, col_root = st.columns([1,1])
+                if len(bc) > 1:
+                    if col_back.button("⬆️ Back", key="s1_back"):
+                        st.session_state.gdrive_breadcrumb.pop()
+                        st.session_state.gdrive_folder_id = bc[-2][0]
+                        st.rerun()
+                if len(bc) > 1:
+                    if col_root.button("🏠 Root", key="s1_root"):
+                        st.session_state.gdrive_breadcrumb = [('root','My Drive')]
+                        st.session_state.gdrive_folder_id = 'root'
+                        st.rerun()
+
+                try:
+                    service = get_drive_service()
+                    items   = list_drive_folder(service, st.session_state.gdrive_folder_id)
+                    folders = [i for i in items
+                               if i['mimeType']=='application/vnd.google-apps.folder']
+                    tiffs   = [i for i in items
+                               if i['mimeType']!='application/vnd.google-apps.folder']
+
+                    # Folders
+                    for folder in folders:
+                        if st.button(f"📁 {folder['name']}",
+                                     key=f"s1_fd_{folder['id']}",
+                                     use_container_width=True):
+                            st.session_state.gdrive_breadcrumb.append(
+                                (folder['id'], folder['name']))
+                            st.session_state.gdrive_folder_id = folder['id']
+                            st.rerun()
+
+                    # TIFF files
+                    if tiffs:
+                        st.markdown(f"**{len(tiffs)} TIFF file(s) in this folder:**")
+                        existing = [n for n,_ in st.session_state.tiff_files]
+                        for f in tiffs:
+                            size_kb = int(f.get('size',0))//1024
+                            lbl     = get_label(f['name'])
+                            col     = WINE_COLORS.get(lbl,'#555')
+                            already = f['name'] in existing
+                            ca, cb  = st.columns([5,1])
+                            ca.markdown(
+                                f"<div style='padding:4px 0'>"
+                                f"<span style='background:{col};color:white;padding:1px 8px;"
+                                f"border-radius:8px;font-size:11px'>{lbl}</span> "
+                                f"`{f['name'][:30]}` "
+                                f"<span style='color:#888;font-size:11px'>({size_kb}KB)</span>"
+                                f"{'  ✅' if already else ''}</div>",
+                                unsafe_allow_html=True)
+                            if not already:
+                                if cb.button("➕", key=f"s1_add_{f['id']}"):
+                                    with st.spinner(f"Downloading {f['name']}..."):
+                                        data = download_drive_file(service, f['id'])
+                                        st.session_state.tiff_files.append((f['name'], data))
+                                        st.session_state.file_labels[f['name']] = lbl
+                                        st.toast(f"✅ Added {f['name']}")
+                                        st.rerun()
+                            else:
+                                cb.markdown("✅")
+
+                        # Add all button
+                        not_added = [f for f in tiffs if f['name'] not in existing]
+                        if not_added:
+                            if st.button(f"➕ Add all {len(not_added)} TIFFs from this folder",
+                                         type="primary", use_container_width=True,
+                                         key="s1_add_all"):
+                                prog = st.progress(0, text="Downloading...")
+                                for i,f in enumerate(not_added):
+                                    data = download_drive_file(service, f['id'])
+                                    st.session_state.tiff_files.append((f['name'], data))
+                                    st.session_state.file_labels[f['name']] = get_label(f['name'])
+                                    prog.progress((i+1)/len(not_added),
+                                                  text=f"Downloaded {f['name']}")
+                                st.toast(f"✅ Added {len(not_added)} files")
+                                st.rerun()
+                        else:
+                            st.success("✅ All files in this folder already added!")
+
+                    elif not folders:
+                        st.caption("No TIFF files or folders found here.")
+
+                except Exception as e:
+                    st.error(f"Drive error: {e}")
+
+                st.markdown("---")
+                st.caption("💡 Or paste a ZIP file ID to download directly:")
+                gid = st.text_input("ZIP File ID (optional)",
+                                    placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs",
+                                    key="gid_step1")
+                if st.button("📥 Fetch ZIP", use_container_width=True, key="fetch_step1") and gid:
+                    with st.spinner("Downloading..."):
+                        try:
+                            import urllib.request
+                            url = f"https://drive.google.com/uc?export=download&id={gid}"
+                            with urllib.request.urlopen(url) as r:
+                                zf = io.BytesIO(r.read())
+                            st.success("✅ Downloaded!")
+                        except Exception as e:
+                            st.error(f"❌ {e}")
 
     with col_info:
         st.markdown("""
