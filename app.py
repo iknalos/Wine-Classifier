@@ -141,7 +141,10 @@ try:
         flow = build_flow()
         if flow:
             try:
-                flow.fetch_token(code=params['code'])
+                # Build full authorization response URL
+                full_url = st.secrets.auth.redirect_uri + "?" + \
+                    "&".join([f"{k}={v}" for k, v in params.items()])
+                flow.fetch_token(authorization_response=full_url)
                 t = flow.credentials
                 st.session_state.gdrive_token = {
                     'access_token':  t.token,
@@ -150,21 +153,7 @@ try:
                 st.query_params.clear()
                 st.rerun()
             except Exception as e:
-                try:
-                    full_url = (st.secrets.auth.redirect_uri +
-                               "?code=" + params['code'] +
-                               ("&state=" + params['state'] if 'state' in params else ""))
-                    flow2 = build_flow()
-                    flow2.fetch_token(authorization_response=full_url)
-                    t = flow2.credentials
-                    st.session_state.gdrive_token = {
-                        'access_token':  t.token,
-                        'refresh_token': t.refresh_token,
-                    }
-                    st.query_params.clear()
-                    st.rerun()
-                except Exception as e2:
-                    st.sidebar.error(f"Auth failed: {e2}")
+                st.sidebar.error(f"Auth failed: {e}")
 except Exception:
     pass
 
@@ -301,7 +290,8 @@ with st.sidebar:
         if flow:
             auth_url, _ = flow.authorization_url(
                 prompt='consent',
-                access_type='offline')
+                access_type='offline',
+                include_granted_scopes='true')
             st.link_button(
                 "🔗 Connect Google Drive",
                 auth_url,
