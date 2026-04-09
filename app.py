@@ -1,3 +1,13 @@
+import streamlit as st
+import os, json, zipfile, io, tempfile, shutil
+# ... rest of imports
+
+# TEMPORARY DEBUG — remove after fixing
+st.write("Secrets keys:", list(st.secrets.keys()))
+if "google" in st.secrets:
+    st.write("Google keys:", list(st.secrets["google"].keys()))
+else:
+    st.write("❌ No google section found in secrets")
 # ============================================================
 #  Hyperspectral Wine Classifier — Streamlit Web App
 #  Save as app.py | Run: streamlit run app.py
