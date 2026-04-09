@@ -70,14 +70,13 @@ def get_google_creds():
     if not GOOGLE_AVAILABLE:
         return None
     try:
-        if "google" not in st.secrets:
+        if "auth" not in st.secrets:
             return None
-        s = st.secrets["google"]
-        if not all(k in s for k in ["client_id","client_secret","redirect_uri"]):
-            return None
-        return {"client_id": s["client_id"],
-                "client_secret": s["client_secret"],
-                "redirect_uri": s["redirect_uri"]}
+        return {
+            "client_id":     st.secrets.auth.client_id,
+            "client_secret": st.secrets.auth.client_secret,
+            "redirect_uri":  st.secrets.auth.redirect_uri,
+        }
     except Exception:
         return None
 
