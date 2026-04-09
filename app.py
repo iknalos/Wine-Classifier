@@ -284,8 +284,8 @@ with st.sidebar:
         if flow:
             auth_url, _ = flow.authorization_url(
                 prompt='consent',
-                access_type='offline',
-                redirect_uri=st.secrets.auth.redirect_uri)
+                access_type='offline')
+            st.caption(f"Debug URI: {st.secrets.auth.redirect_uri}")
             st.markdown(
                 f"<a href='{auth_url}' target='_self'>"
                 f"<button style='background:#4285F4;color:white;border:none;"
@@ -293,7 +293,6 @@ with st.sidebar:
                 f"width:100%;font-size:14px;font-weight:600'>"
                 f"🔗 Connect Google Drive</button></a>",
                 unsafe_allow_html=True)
-            st.caption(f"Debug URI: {st.secrets.auth.redirect_uri}")
             st.caption("Connect once — browse and import files directly.")
     else:
         st.success("✅ Drive connected")
