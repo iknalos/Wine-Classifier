@@ -350,12 +350,11 @@ def can_advance(to_step):
 with st.sidebar:
     st.markdown("""
     <div class='sidebar-logo'>
-        <div style='font-size:42px'>🍷</div>
+        <span class='emoji'>🍷</span>
         <h1>Wine Classifier</h1>
         <p>Hyperspectral Analysis</p>
     </div>
     """, unsafe_allow_html=True)
-    st.markdown("<div style='height:1px;background:linear-gradient(90deg,transparent,#2a2a40,transparent);margin-bottom:16px'></div>", unsafe_allow_html=True)
 
     step_icons  = ["📁","🎯","🤖","🔍"]
     step_labels = ["1  Upload Data","2  Select ROI","3  Train Model","4  Predict"]
@@ -371,17 +370,18 @@ with st.sidebar:
             st.session_state.step = i
             st.rerun()
 
-    st.markdown("<div style='height:1px;background:linear-gradient(90deg,transparent,#2a2a40,transparent);margin:16px 0'></div>", unsafe_allow_html=True)
+    st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
     n_done = sum(step_done[:3])
     st.markdown(f"""
-    <div style='padding:10px 4px'>
-        <div style='display:flex;justify-content:space-between;margin-bottom:6px'>
-            <span style='font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px'>Progress</span>
-            <span style='font-size:11px;color:#e94560;font-weight:600'>{n_done}/3 steps</span>
+    <div style='padding:4px 4px 12px'>
+        <div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px'>
+            <span style='font-size:10px;color:#3a3a5c;text-transform:uppercase;letter-spacing:1px;font-weight:600'>Progress</span>
+            <span style='font-size:11px;color:#e94560;font-weight:700'>{n_done} / 3</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
     st.progress(n_done/3)
+    st.markdown("<div style='margin-bottom:8px'></div>", unsafe_allow_html=True)
 
     if st.session_state.tiff_files:
         st.markdown("---")
@@ -670,6 +670,21 @@ if st.session_state.step == 0:
                         added.append(bname)
         if added:
             st.success(f"✅ Added {len(added)} files")
+
+    # Empty state
+    if not st.session_state.tiff_files:
+        st.markdown("""
+        <div style='text-align:center;padding:40px 20px;margin-top:8px;
+             background:rgba(255,255,255,0.01);border:1px dashed rgba(255,255,255,0.08);
+             border-radius:16px'>
+            <div style='font-size:48px;margin-bottom:12px'>📂</div>
+            <div style='font-size:15px;font-weight:600;color:#fff;margin-bottom:6px'>No files uploaded yet</div>
+            <div style='font-size:12px;color:#3a3a5c;max-width:280px;margin:0 auto'>
+                Upload a ZIP containing your labelled TIFF images to get started.
+                Minimum 2 images per wine type recommended.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     if st.session_state.tiff_files:
         st.markdown("### 📋 Uploaded Files")
