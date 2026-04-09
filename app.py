@@ -86,15 +86,17 @@ def build_flow():
     if not c:
         return None
     try:
+        # Use redirect_uri exactly from secrets — no hardcoding
+        redirect = c["redirect_uri"].strip()
         cfg = {"web": {
             "client_id": c["client_id"],
             "client_secret": c["client_secret"],
-            "redirect_uris": [c["redirect_uri"]],
+            "redirect_uris": [redirect],
             "auth_uri": "https://accounts.google.com/o/oauth2/auth",
             "token_uri": "https://oauth2.googleapis.com/token",
         }}
         return Flow.from_client_config(cfg, scopes=SCOPES,
-                                       redirect_uri=c["redirect_uri"])
+                                       redirect_uri=redirect)
     except Exception as e:
         st.error(f"Flow error: {e}")
         return None
