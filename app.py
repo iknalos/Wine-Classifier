@@ -1,5 +1,5 @@
 # ============================================================
-#  Hyperspectral Wine Classifier — Streamlit Web App
+#  Hyperspectral Image Classifier — Streamlit Web App
 #  Save as app.py | Run: streamlit run app.py
 # ============================================================
 
@@ -29,162 +29,178 @@ except ImportError:
     GOOGLE_AVAILABLE = False
 
 # ── Page config ──
-st.set_page_config(page_title="🍷 Wine Classifier", page_icon="🍷",
+st.set_page_config(page_title="🔬 Image Classifier", page_icon="🔬",
                    layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-html, body, [class*="css"] {
-    font-family: 'Inter', sans-serif;
+html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+#MainMenu, footer { visibility: hidden; }
+a[href*="github.com"], [data-testid="stToolbarActions"] { display: none !important; }
+[data-testid="stHeader"] { background: transparent; height: 0; }
+[data-testid="stStatusWidget"] { display: none !important; }
+[data-testid="stToolbar"] { display: none !important; }
+#stDecoration { display: none !important; }
+.stApp { background: #080810; }
+
+.block-container {
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+    max-width: 1080px !important;
 }
-
-/* Hide Streamlit chrome */
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-a[href*="github.com"] {display: none !important;}
-[data-testid="stToolbarActions"] {display: none !important;}
-[data-testid="stHeader"] {background: transparent;}
-
-/* Main background */
-.stApp { background: #0a0a0f; }
-
-/* Sidebar */
+[data-testid="stSidebarContent"] { padding-top: 0 !important; }
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0f0f1a 0%, #12121f 100%);
-    border-right: 1px solid #1e1e30;
+    background: #0c0c18 !important;
+    border-right: 1px solid rgba(255,255,255,0.06) !important;
 }
+[data-testid="stSidebar"] > div:first-child { padding-top: 0 !important; }
 
-/* Step header */
-.step-header {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-    color: white; padding: 24px 28px; border-radius: 16px;
-    margin-bottom: 24px;
-    border: 1px solid rgba(255,255,255,0.08);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-    position: relative; overflow: hidden;
-}
-.step-header::before {
-    content: '';
-    position: absolute; top: 0; left: 0;
-    width: 4px; height: 100%;
-    background: linear-gradient(180deg, #e94560, #c23152);
-}
-.step-header h2 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
-.step-header p  { margin: 6px 0 0 0; opacity: 0.6; font-size: 13px; font-weight: 400; }
-
-/* Cards */
-.metric-card {
-    background: linear-gradient(135deg, #13131f, #1a1a2e);
-    border: 1px solid #1e1e35;
-    border-radius: 12px; padding: 16px 20px;
-    text-align: center;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-    transition: transform 0.2s, border-color 0.2s;
-}
-.metric-card:hover { transform: translateY(-2px); border-color: #e94560; }
-
-/* Buttons */
-[data-testid="stButton"] > button {
-    border-radius: 10px !important;
-    font-weight: 500 !important;
-    font-family: 'Inter', sans-serif !important;
-    transition: all 0.2s !important;
-}
-[data-testid="stButton"] > button:hover {
-    transform: translateY(-1px) !important;
-    box-shadow: 0 4px 12px rgba(233,69,96,0.3) !important;
-}
-
-/* Primary buttons */
-[data-testid="stButton"] > button[kind="primary"] {
-    background: linear-gradient(135deg, #e94560, #c23152) !important;
-    border: none !important;
-    color: white !important;
-}
-
-/* File uploader */
-[data-testid="stFileUploader"] {
-    background: #13131f !important;
-    border: 2px dashed #2a2a40 !important;
-    border-radius: 12px !important;
-    transition: border-color 0.2s !important;
-}
-[data-testid="stFileUploader"]:hover {
-    border-color: #e94560 !important;
-}
-
-/* Tabs */
-[data-testid="stTabs"] [role="tab"] {
-    border-radius: 8px 8px 0 0 !important;
-    font-weight: 500 !important;
-}
-
-/* Expander */
-[data-testid="stExpander"] {
-    background: #13131f !important;
-    border: 1px solid #1e1e30 !important;
-    border-radius: 10px !important;
-}
-
-/* Progress bar */
-[data-testid="stProgressBar"] > div > div {
-    background: linear-gradient(90deg, #e94560, #c23152) !important;
-    border-radius: 4px !important;
-}
-
-/* Sidebar logo area */
 .sidebar-logo {
-    text-align: center;
-    padding: 8px 0 16px 0;
+    background: linear-gradient(180deg, #12122a 0%, #0c0c18 100%);
+    padding: 24px 20px 18px; text-align: center;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    margin-bottom: 4px;
 }
 .sidebar-logo h1 {
-    font-size: 20px; font-weight: 700;
-    background: linear-gradient(135deg, #e94560, #ff6b6b);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin: 8px 0 2px 0;
+    font-size: 18px; font-weight: 800; margin: 0 0 4px;
+    background: linear-gradient(135deg, #ffffff 0%, #e94560 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    letter-spacing: -0.5px;
 }
 .sidebar-logo p {
-    font-size: 11px; color: #555; margin: 0;
-    letter-spacing: 0.5px; text-transform: uppercase;
+    font-size: 9px; color: #2e2e4e; margin: 0;
+    letter-spacing: 2px; text-transform: uppercase; font-weight: 600;
 }
 
-/* Wine badge */
-.wine-badge {
-    display: inline-block; padding: 2px 10px;
-    border-radius: 20px; font-size: 11px;
-    font-weight: 600; color: white;
-    letter-spacing: 0.3px;
+.step-header {
+    background: linear-gradient(135deg, #12122a 0%, #1a1a35 40%, #0f2040 100%);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 16px; padding: 28px 32px;
+    margin-bottom: 28px; position: relative; overflow: hidden;
+}
+.step-header::before {
+    content: ''; position: absolute; top: 0; left: 0;
+    width: 3px; height: 100%;
+    background: linear-gradient(180deg, #e94560, #8b1a2f);
+}
+.step-header::after {
+    content: ''; position: absolute;
+    top: -60px; right: -60px; width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(233,69,96,0.08) 0%, transparent 70%);
+    pointer-events: none;
+}
+.step-header h2 { margin: 0; font-size: 20px; font-weight: 700; color: #fff; letter-spacing: -0.4px; }
+.step-header p  { margin: 5px 0 0; font-size: 13px; color: rgba(255,255,255,0.4); }
+
+.divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+    margin: 12px 0;
 }
 
-/* Info box */
-.info-box {
-    background: linear-gradient(135deg, #13131f, #1a1a2e);
-    border: 1px solid #1e1e35; border-left: 3px solid #e94560;
-    border-radius: 10px; padding: 14px 16px; margin: 8px 0;
-    font-size: 13px;
+[data-testid="stButton"] > button {
+    border-radius: 10px !important; font-weight: 500 !important;
+    font-size: 13px !important; font-family: 'Inter', sans-serif !important;
+    transition: all 0.15s ease !important; letter-spacing: -0.1px !important;
+}
+[data-testid="stButton"] > button:hover { transform: translateY(-1px) !important; }
+[data-testid="stButton"] > button[kind="primary"] {
+    background: linear-gradient(135deg, #e94560 0%, #c0213e 100%) !important;
+    border: none !important;
+    box-shadow: 0 4px 15px rgba(233,69,96,0.35) !important;
+}
+[data-testid="stButton"] > button[kind="primary"]:hover {
+    box-shadow: 0 6px 20px rgba(233,69,96,0.5) !important;
+}
+[data-testid="stButton"] > button[kind="secondary"] {
+    background: rgba(255,255,255,0.03) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    color: #8888aa !important;
+}
+[data-testid="stButton"] > button[kind="secondary"]:hover {
+    background: rgba(255,255,255,0.06) !important;
+    border-color: rgba(255,255,255,0.15) !important;
+    color: #ffffff !important;
 }
 
-/* Status badge */
-.status-connected {
-    display: inline-flex; align-items: center; gap: 6px;
-    background: #0d2b1f; border: 1px solid #1a5c3a;
-    color: #4caf7d; border-radius: 20px;
-    padding: 4px 12px; font-size: 12px; font-weight: 600;
+[data-testid="stTabs"] [role="tablist"] {
+    background: rgba(255,255,255,0.03) !important;
+    border-radius: 10px !important; padding: 3px !important;
+    border: 1px solid rgba(255,255,255,0.07) !important;
+}
+[data-testid="stTabs"] [role="tab"] {
+    border-radius: 8px !important; font-weight: 500 !important;
+    font-size: 13px !important; padding: 6px 16px !important;
+    transition: all 0.15s !important;
+}
+[data-testid="stTabs"] [role="tab"][aria-selected="true"] {
+    background: linear-gradient(135deg, #e94560, #c0213e) !important;
+    color: white !important;
+    box-shadow: 0 2px 8px rgba(233,69,96,0.4) !important;
 }
 
-/* Remove top padding */
-.stApp > header { height: 0px !important; }
-.block-container {
-    padding-top: 1.5rem !important;
-    padding-bottom: 1rem !important;
-    max-width: 1100px !important;
+[data-testid="stFileUploader"] {
+    background: rgba(255,255,255,0.02) !important;
+    border: 2px dashed rgba(255,255,255,0.1) !important;
+    border-radius: 14px !important; transition: all 0.2s !important;
 }
-[data-testid="stSidebarContent"] {
-    padding-top: 1.5rem !important;
+[data-testid="stFileUploader"]:hover {
+    border-color: rgba(233,69,96,0.5) !important;
+    background: rgba(233,69,96,0.04) !important;
 }
+
+[data-testid="stExpander"] {
+    background: rgba(255,255,255,0.02) !important;
+    border: 1px solid rgba(255,255,255,0.07) !important;
+    border-radius: 12px !important; overflow: hidden !important;
+}
+
+[data-testid="stProgressBar"] > div {
+    background: rgba(255,255,255,0.06) !important;
+    border-radius: 6px !important; height: 4px !important;
+}
+[data-testid="stProgressBar"] > div > div {
+    background: linear-gradient(90deg, #e94560, #ff6b6b) !important;
+    border-radius: 6px !important;
+    box-shadow: 0 0 8px rgba(233,69,96,0.6) !important;
+}
+
+[data-testid="stTextInput"] input {
+    background: rgba(255,255,255,0.04) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    border-radius: 10px !important; font-size: 13px !important;
+    transition: border-color 0.2s !important;
+}
+[data-testid="stTextInput"] input:focus {
+    border-color: rgba(233,69,96,0.6) !important;
+    box-shadow: 0 0 0 3px rgba(233,69,96,0.1) !important;
+}
+
+[data-testid="stLinkButton"] a {
+    background: linear-gradient(135deg, #1a5ec2, #1044a0) !important;
+    border-radius: 10px !important; font-weight: 600 !important;
+    font-size: 13px !important;
+    box-shadow: 0 4px 14px rgba(26,94,194,0.4) !important;
+    transition: all 0.2s !important;
+}
+
+[data-testid="stMetric"] {
+    background: rgba(255,255,255,0.03) !important;
+    border: 1px solid rgba(255,255,255,0.07) !important;
+    border-radius: 12px !important; padding: 16px !important;
+}
+
+[data-testid="stDataFrame"] {
+    border: 1px solid rgba(255,255,255,0.07) !important;
+    border-radius: 12px !important; overflow: hidden !important;
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #e94560; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -225,45 +241,34 @@ def get_google_creds():
         return None
 
 def get_auth_url():
-    """Build Google OAuth URL manually — no PKCE"""
     c = get_google_creds()
-    if not c:
-        return None
+    if not c: return None
     params = {
-        'client_id':     c['client_id'],
-        'redirect_uri':  c['redirect_uri'],
+        'client_id': c['client_id'], 'redirect_uri': c['redirect_uri'],
         'response_type': 'code',
-        'scope':         'https://www.googleapis.com/auth/drive.readonly',
-        'access_type':   'offline',
-        'prompt':        'consent',
+        'scope': 'https://www.googleapis.com/auth/drive.readonly',
+        'access_type': 'offline', 'prompt': 'consent',
     }
     return 'https://accounts.google.com/o/oauth2/auth?' + urllib.parse.urlencode(params)
 
 def fetch_token(code):
-    """Exchange auth code for access token — no PKCE"""
     c = get_google_creds()
-    if not c:
-        return None
+    if not c: return None
     resp = req_lib.post('https://oauth2.googleapis.com/token', data={
-        'code':          code,
-        'client_id':     c['client_id'],
+        'code': code, 'client_id': c['client_id'],
         'client_secret': c['client_secret'],
-        'redirect_uri':  c['redirect_uri'],
-        'grant_type':    'authorization_code',
+        'redirect_uri': c['redirect_uri'], 'grant_type': 'authorization_code',
     })
     return resp.json()
 
 def get_drive_service():
     token = st.session_state.gdrive_token
-    if not token or not GOOGLE_AVAILABLE:
-        return None
+    if not token or not GOOGLE_AVAILABLE: return None
     c = get_google_creds()
     creds = Credentials(
-        token=token['access_token'],
-        refresh_token=token.get('refresh_token'),
+        token=token['access_token'], refresh_token=token.get('refresh_token'),
         token_uri="https://oauth2.googleapis.com/token",
-        client_id=c['client_id'],
-        client_secret=c['client_secret'],
+        client_id=c['client_id'], client_secret=c['client_secret'],
         scopes=['https://www.googleapis.com/auth/drive.readonly']
     )
     return build('drive', 'v3', credentials=creds)
@@ -310,27 +315,22 @@ def get_label(name):
     n = name.lower()
     for lbl in ['dao','odc','ln','lo','pn','po']:
         if lbl in n:
-            return {'dao':'Dao','odc':'ODC','ln':'LN',
-                    'lo':'LO','pn':'PN','po':'PO'}[lbl]
+            return {'dao':'Dao','odc':'ODC','ln':'LN','lo':'LO','pn':'PN','po':'PO'}[lbl]
     return 'Unknown'
 
 def load_and_demosaic(data):
     raw = tifffile.imread(io.BytesIO(data)).astype(np.float32)
     if raw.ndim == 3: raw = raw.mean(axis=2)
-    raw = raw[:(raw.shape[0]//TILE_H)*TILE_H,
-               :(raw.shape[1]//TILE_W)*TILE_W]
-    return raw, [raw[r::TILE_H, c::TILE_W]
-                 for r in range(TILE_H) for c in range(TILE_W)]
+    raw = raw[:(raw.shape[0]//TILE_H)*TILE_H, :(raw.shape[1]//TILE_W)*TILE_W]
+    return raw, [raw[r::TILE_H, c::TILE_W] for r in range(TILE_H) for c in range(TILE_W)]
 
 def extract_patches(channels, x0, y0, x1, y1, px=PATCH_SIZE):
     sx, sy = px//TILE_W, px//TILE_H
     feats  = []
     for py in range(y0//TILE_H, y1//TILE_H-sy+1, sy):
         for px2 in range(x0//TILE_W, x1//TILE_W-sx+1, sx):
-            m = np.array([ch[py:py+sy, px2:px2+sx].mean()
-                          for ch in channels], dtype=np.float32)
-            s = np.array([ch[py:py+sy, px2:px2+sx].std()
-                          for ch in channels], dtype=np.float32)
+            m = np.array([ch[py:py+sy, px2:px2+sx].mean() for ch in channels], dtype=np.float32)
+            s = np.array([ch[py:py+sy, px2:px2+sx].std()  for ch in channels], dtype=np.float32)
             feats.append(np.concatenate([m/(m.sum()+1e-9), s]))
     return feats
 
@@ -351,8 +351,8 @@ with st.sidebar:
     st.markdown("""
     <div class='sidebar-logo'>
         <div style='font-size:72px;line-height:1;margin-bottom:10px;
-             filter:drop-shadow(0 4px 16px rgba(233,69,96,0.5))'>🍷</div>
-        <h1>Wine Classifier</h1>
+             filter:drop-shadow(0 4px 16px rgba(233,69,96,0.5))'>🔬</div>
+        <h1>Image Classifier</h1>
         <p>Hyperspectral Analysis</p>
     </div>
     """, unsafe_allow_html=True)
@@ -377,7 +377,8 @@ with st.sidebar:
     st.markdown(f"""
     <div style='padding:4px 4px 12px'>
         <div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px'>
-            <span style='font-size:10px;color:#3a3a5c;text-transform:uppercase;letter-spacing:1px;font-weight:600'>Progress</span>
+            <span style='font-size:10px;color:#3a3a5c;text-transform:uppercase;
+                letter-spacing:1px;font-weight:600'>Progress</span>
             <span style='font-size:11px;color:#e94560;font-weight:700'>{n_done} / 3</span>
         </div>
     </div>
@@ -386,7 +387,7 @@ with st.sidebar:
     st.markdown("<div style='margin-bottom:8px'></div>", unsafe_allow_html=True)
 
     if st.session_state.tiff_files:
-        st.markdown("---")
+        st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
         st.markdown("**📂 Training Files**")
         for i,(name,_) in enumerate(st.session_state.tiff_files):
             lbl = st.session_state.file_labels.get(name,'Unknown')
@@ -414,14 +415,14 @@ with st.sidebar:
             st.session_state.model         = None
             st.rerun()
 
-    st.markdown("---")
+    st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
     if st.session_state.training_done and st.session_state.model:
         buf = io.BytesIO()
         joblib.dump({'model': st.session_state.model,
                      'rois':  st.session_state.rois,
                      'patch_size': PATCH_SIZE}, buf)
         st.download_button("💾 Download Model", buf.getvalue(),
-                           "wine_classifier.pkl", use_container_width=True)
+                           "classifier.pkl", use_container_width=True)
         if st.button("🗑️ Clear Model", use_container_width=True):
             st.session_state.model = None
             st.session_state.training_done = False
@@ -436,11 +437,9 @@ with st.sidebar:
         st.session_state.training_done = True
         st.success("✅ Model loaded!")
 
-    # ── Google Drive panel ──
-    st.markdown("---")
+    st.markdown("<div class='divider'></div>", unsafe_allow_html=True)
     st.markdown("### ☁️ Google Drive")
     gcreds = get_google_creds()
-
     if not GOOGLE_AVAILABLE:
         st.caption("⚠️ Google libraries not installed.")
     elif gcreds is None:
@@ -448,8 +447,7 @@ with st.sidebar:
     elif st.session_state.gdrive_token is None:
         auth_url = get_auth_url()
         if auth_url:
-            st.link_button("🔗 Connect Google Drive",
-                           auth_url, use_container_width=True)
+            st.link_button("🔗 Connect Google Drive", auth_url, use_container_width=True)
             st.caption("Connect once — browse and import files directly.")
     else:
         st.success("✅ Drive connected")
@@ -459,8 +457,7 @@ with st.sidebar:
             st.session_state.gdrive_folder_name = 'My Drive'
             st.session_state.gdrive_breadcrumb  = [('root','My Drive')]
             st.rerun()
-
-    st.markdown("---")
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
 # ============================================================
 #  STEP 1 — Upload Training Data
@@ -468,22 +465,22 @@ with st.sidebar:
 if st.session_state.step == 0:
     st.markdown("""<div class='step-header'>
         <h2>📁 Step 1 — Upload Training Data</h2>
-        <p>Upload a ZIP containing your labelled TIFF images.</p>
+        <p>Upload TIFF images or a ZIP file containing your labelled samples.</p>
     </div>""", unsafe_allow_html=True)
 
     with st.expander("ℹ️ What kind of images do I need?"):
         st.markdown("""
         **Camera & Format**
-        Designed for the **Basler daA2500** with a 9×9 mosaic spectral filter (81 bands).
+        Designed for snapshot mosaic cameras with a 9×9 spectral filter (81 bands).
         Images must be raw `.tiff` files — do not convert to JPEG or PNG.
 
-        **How many images per wine?**
-        Minimum **2 per wine type**, 3 or more recommended.
+        **How many images per class?**
+        Minimum **2 per class**, 3 or more recommended.
 
         **File naming**
-        The wine label is detected from the filename automatically.
-        Just make sure the wine name appears somewhere in the filename:
-        `Dao_100K_1.tiff`, `ODC_sample2.tiff` etc.
+        The class label is detected from the filename automatically.
+        Make sure the label appears somewhere in the filename:
+        `ClassA_sample_1.tiff`, `ClassB_100K_2.tiff` etc.
 
         **Important:** All images should be captured under the same exposure,
         distance and lighting conditions.
@@ -493,18 +490,24 @@ if st.session_state.step == 0:
 
     with col_up:
         tab_local, tab_drive = st.tabs(["💻 From Computer","☁️ Google Drive"])
+
         with tab_local:
-            upload_mode = st.radio("Upload as:", ["📦 ZIP file", "🖼️ Individual TIFFs"],
-                                   horizontal=True, label_visibility='collapsed')
+            upload_mode = st.radio(
+                "Upload as:",
+                ["📦 ZIP file", "🖼️ Individual TIFFs"],
+                horizontal=True,
+                label_visibility='collapsed')
 
             if upload_mode == "📦 ZIP file":
                 zf = st.file_uploader("Drop your training ZIP here",
                                       type=['zip'], label_visibility='collapsed')
             else:
-                tiff_uploads = st.file_uploader("Upload TIFF files",
-                                                type=['tiff','tif'],
-                                                accept_multiple_files=True,
-                                                label_visibility='collapsed')
+                zf = None
+                tiff_uploads = st.file_uploader(
+                    "Upload TIFF files",
+                    type=['tiff','tif'],
+                    accept_multiple_files=True,
+                    label_visibility='collapsed')
                 if tiff_uploads:
                     existing = [f[0] for f in st.session_state.tiff_files]
                     added = []
@@ -516,7 +519,6 @@ if st.session_state.step == 0:
                     if added:
                         st.success(f"✅ Added {len(added)} file(s)")
                         st.rerun()
-                zf = None
 
             if not st.session_state.tiff_files and not zf:
                 st.markdown("""
@@ -524,20 +526,22 @@ if st.session_state.step == 0:
                      background:rgba(255,255,255,0.01);
                      border:1px dashed rgba(255,255,255,0.07);border-radius:12px'>
                     <div style='font-size:32px;margin-bottom:8px'>📂</div>
-                    <div style='font-size:13px;font-weight:600;color:#aaa;margin-bottom:4px'>No files uploaded yet</div>
-                    <div style='font-size:11px;color:#3a3a5c'>Upload a ZIP or individual TIFF files above</div>
+                    <div style='font-size:13px;font-weight:600;color:#aaa;margin-bottom:4px'>
+                        No files uploaded yet</div>
+                    <div style='font-size:11px;color:#3a3a5c'>
+                        Upload individual TIFFs or a ZIP file above</div>
                 </div>""", unsafe_allow_html=True)
+
         with tab_drive:
             if st.session_state.gdrive_token is None:
-                st.info("🔗 Connect Google Drive from the sidebar first, then browse your folders here.")
+                st.info("🔗 Connect Google Drive from the sidebar first.")
             else:
                 try:
                     service = get_drive_service()
-
-                    # ── Breadcrumb + nav ──
                     bc = st.session_state.gdrive_breadcrumb
                     bc_html = " › ".join(
-                        [f"<b>{n}</b>" if i==len(bc)-1 else n for i,(_, n) in enumerate(bc)])
+                        [f"<b>{n}</b>" if i==len(bc)-1 else n
+                         for i,(_,n) in enumerate(bc)])
                     st.markdown(f"<small>📂 {bc_html}</small>", unsafe_allow_html=True)
 
                     nav1, nav2, nav3 = st.columns([1,1,3])
@@ -551,125 +555,84 @@ if st.session_state.step == 0:
                             st.session_state.gdrive_folder_id  = 'root'
                             st.rerun()
 
-                    # ── Search ──
-                    search = nav3.text_input("🔍 Search files",
-                                             placeholder="type to filter...",
-                                             key="drive_search",
-                                             label_visibility='collapsed')
-
+                    search = nav3.text_input("🔍", placeholder="Search files...",
+                                             key="drive_search", label_visibility='collapsed')
                     items   = list_drive_folder(service, st.session_state.gdrive_folder_id)
-                    folders = [i for i in items
-                               if i['mimeType']=='application/vnd.google-apps.folder']
-                    tiffs   = [i for i in items
-                               if i['mimeType']!='application/vnd.google-apps.folder']
-
-                    # Apply search filter
+                    folders = [i for i in items if i['mimeType']=='application/vnd.google-apps.folder']
+                    tiffs   = [i for i in items if i['mimeType']!='application/vnd.google-apps.folder']
                     if search:
-                        folders = [f for f in folders
-                                   if search.lower() in f['name'].lower()]
-                        tiffs   = [f for f in tiffs
-                                   if search.lower() in f['name'].lower()]
+                        folders = [f for f in folders if search.lower() in f['name'].lower()]
+                        tiffs   = [f for f in tiffs   if search.lower() in f['name'].lower()]
 
-                    # ── Folders — compact grid ──
                     if folders:
                         st.markdown("<small><b>📁 Folders</b></small>", unsafe_allow_html=True)
-                        FCOLS = 3
-                        for row_start in range(0, len(folders), FCOLS):
-                            row_folders = folders[row_start:row_start+FCOLS]
-                            cols = st.columns(FCOLS)
-                            for ci, folder in enumerate(row_folders):
-                                name_short = folder['name'][:14] + ('…' if len(folder['name'])>14 else '')
-                                if cols[ci].button(f"📁 {name_short}",
-                                                   key=f"s1_fd_{folder['id']}",
-                                                   use_container_width=True,
-                                                   help=folder['name']):
+                        for row in range(0, len(folders), 3):
+                            cols = st.columns(3)
+                            for ci, folder in enumerate(folders[row:row+3]):
+                                nm = folder['name'][:14]+('…' if len(folder['name'])>14 else '')
+                                if cols[ci].button(f"📁 {nm}", key=f"s1_fd_{folder['id']}",
+                                                   use_container_width=True, help=folder['name']):
                                     st.session_state.gdrive_breadcrumb.append(
                                         (folder['id'], folder['name']))
                                     st.session_state.gdrive_folder_id = folder['id']
                                     st.rerun()
 
-                    # ── TIFF files with pagination ──
                     if tiffs:
                         PAGE_SIZE = 15
-                        total_pages = max(1, (len(tiffs) + PAGE_SIZE - 1) // PAGE_SIZE)
-                        page_key = 'drive_page'
-                        if page_key not in st.session_state:
-                            st.session_state[page_key] = 0
-                        # Reset page on search change
-                        if search:
-                            st.session_state[page_key] = 0
-                        page     = st.session_state[page_key]
-                        page_tiffs = tiffs[page*PAGE_SIZE:(page+1)*PAGE_SIZE]
+                        total_pages = max(1, (len(tiffs)+PAGE_SIZE-1)//PAGE_SIZE)
+                        if 'drive_page' not in st.session_state: st.session_state['drive_page'] = 0
+                        if search: st.session_state['drive_page'] = 0
+                        page = st.session_state['drive_page']
                         existing = [n for n,_ in st.session_state.tiff_files]
-
                         st.markdown(
-                            f"<small><b>🖼️ TIFF Files</b> — "
-                            f"{len(tiffs)} total, showing {page*PAGE_SIZE+1}–"
-                            f"{min((page+1)*PAGE_SIZE, len(tiffs))}</small>",
-                            unsafe_allow_html=True)
-
-                        # File rows
-                        for f in page_tiffs:
+                            f"<small><b>🖼️ TIFF Files</b> — {len(tiffs)} total, "
+                            f"showing {page*PAGE_SIZE+1}–{min((page+1)*PAGE_SIZE,len(tiffs))}"
+                            f"</small>", unsafe_allow_html=True)
+                        for f in tiffs[page*PAGE_SIZE:(page+1)*PAGE_SIZE]:
                             size_kb = int(f.get('size',0))//1024
-                            lbl     = get_label(f['name'])
-                            col     = WINE_COLORS.get(lbl,'#555')
+                            lbl = get_label(f['name'])
+                            col = WINE_COLORS.get(lbl,'#555')
                             already = f['name'] in existing
-                            ca, cb  = st.columns([6,1])
+                            ca,cb = st.columns([6,1])
                             ca.markdown(
                                 f"<div style='padding:2px 0;font-size:12px'>"
-                                f"<span style='background:{col};color:white;"
-                                f"padding:1px 6px;border-radius:6px;font-size:10px'>{lbl}</span> "
+                                f"<span style='background:{col};color:white;padding:1px 6px;"
+                                f"border-radius:6px;font-size:10px'>{lbl}</span> "
                                 f"{f['name'][:32]}{'…' if len(f['name'])>32 else ''} "
                                 f"<span style='color:#666'>({size_kb}KB)</span>"
                                 f"{'  ✅' if already else ''}</div>",
                                 unsafe_allow_html=True)
                             if not already:
-                                if cb.button("➕", key=f"s1_add_{f['id']}",
-                                             help=f"Add {f['name']}"):
-                                    with st.spinner(f"Downloading..."):
+                                if cb.button("➕", key=f"s1_add_{f['id']}"):
+                                    with st.spinner("Downloading..."):
                                         data = download_drive_file(service, f['id'])
                                         st.session_state.tiff_files.append((f['name'], data))
                                         st.session_state.file_labels[f['name']] = lbl
                                         st.toast(f"✅ Added {f['name']}")
                                         st.rerun()
-
-                        # Pagination controls
                         if total_pages > 1:
-                            pc1, pc2, pc3 = st.columns([1,2,1])
-                            if pc1.button("◀ Prev", disabled=page==0,
-                                          key="s1_prev", use_container_width=True):
-                                st.session_state[page_key] -= 1; st.rerun()
-                            pc2.markdown(
-                                f"<div style='text-align:center;padding:6px;font-size:12px'>"
-                                f"Page {page+1} / {total_pages}</div>",
-                                unsafe_allow_html=True)
-                            if pc3.button("Next ▶", disabled=page>=total_pages-1,
-                                          key="s1_next", use_container_width=True):
-                                st.session_state[page_key] += 1; st.rerun()
-
-                        # Add all not-yet-added
+                            pc1,pc2,pc3 = st.columns([1,2,1])
+                            if pc1.button("◀", disabled=page==0, key="s1_prev", use_container_width=True):
+                                st.session_state['drive_page'] -= 1; st.rerun()
+                            pc2.markdown(f"<div style='text-align:center;font-size:12px;padding:6px'>"
+                                         f"Page {page+1}/{total_pages}</div>", unsafe_allow_html=True)
+                            if pc3.button("▶", disabled=page>=total_pages-1, key="s1_next", use_container_width=True):
+                                st.session_state['drive_page'] += 1; st.rerun()
                         not_added = [f for f in tiffs if f['name'] not in existing]
                         if not_added:
-                            if st.button(f"➕ Add all {len(not_added)} remaining TIFFs",
-                                         type="primary", use_container_width=True,
-                                         key="s1_add_all"):
+                            if st.button(f"➕ Add all {len(not_added)} TIFFs",
+                                         type="primary", use_container_width=True, key="s1_add_all"):
                                 prog = st.progress(0, text="Downloading...")
                                 for i,f in enumerate(not_added):
                                     data = download_drive_file(service, f['id'])
                                     st.session_state.tiff_files.append((f['name'], data))
                                     st.session_state.file_labels[f['name']] = get_label(f['name'])
-                                    prog.progress((i+1)/len(not_added),
-                                                  text=f"Downloaded {f['name']}")
-                                st.toast(f"✅ Added {len(not_added)} files")
-                                st.rerun()
+                                    prog.progress((i+1)/len(not_added), text=f"Downloaded {f['name']}")
+                                st.toast(f"✅ Added {len(not_added)} files"); st.rerun()
                         else:
-                            st.success("✅ All files in this folder already added!")
-
-                    elif not folders and not search:
+                            st.success("✅ All files already added!")
+                    elif not folders:
                         st.caption("No TIFF files or folders found here.")
-                    elif not folders and not tiffs:
-                        st.caption(f"No results for '{search}'")
-
                 except Exception as e:
                     st.error(f"Drive error: {e}")
 
@@ -714,10 +677,8 @@ if st.session_state.step == 0:
         chips = []
         for l, c in sorted(label_counts.items()):
             bg = WINE_COLORS.get(l, '#555')
-            chips.append(
-                f"<span style='background:{bg};color:white;"
-                f"padding:4px 12px;border-radius:20px;"
-                f"font-size:13px;font-weight:bold'>{l}: {c}</span>")
+            chips.append(f"<span style='background:{bg};color:white;padding:4px 12px;"
+                         f"border-radius:20px;font-size:13px;font-weight:bold'>{l}: {c}</span>")
         st.markdown(" ".join(chips), unsafe_allow_html=True)
         st.markdown("")
 
@@ -726,10 +687,9 @@ if st.session_state.step == 0:
             col = WINE_COLORS.get(lbl,'#555')
             ca,cb = st.columns([5,2])
             ca.markdown(f"🖼️ `{name}`")
-            cb.markdown(
-                f"<span style='background:{col};color:white;padding:2px 10px;"
-                f"border-radius:10px;font-size:12px'>{lbl}</span>",
-                unsafe_allow_html=True)
+            cb.markdown(f"<span style='background:{col};color:white;padding:2px 10px;"
+                        f"border-radius:10px;font-size:12px'>{lbl}</span>",
+                        unsafe_allow_html=True)
 
         if 'Unknown' in label_counts:
             st.warning(f"⚠️ {label_counts['Unknown']} file(s) have unrecognised labels.")
@@ -749,27 +709,25 @@ if st.session_state.step == 0:
 elif st.session_state.step == 1:
     st.markdown("""<div class='step-header'>
         <h2>🎯 Step 2 — Select ROI Regions</h2>
-        <p>Position both boxes over the wine liquid. Avoid glass edges and stem.</p>
+        <p>Position both boxes over the sample area. Avoid edges and background.</p>
     </div>""", unsafe_allow_html=True)
 
     with st.expander("ℹ️ How does this step work?"):
         st.markdown("""
         **What is an ROI?**
-        ROI = Region of Interest. It's the area the model analyses — everything
-        else (glass edges, background, stem) is ignored.
+        ROI = Region of Interest. It's the area the model analyses — everything else is ignored.
 
         **Why two ROIs?**
-        Two separate regions give the model more variety — like tasting from
-        two parts of the glass. More spatial diversity = more robust model.
+        Two separate regions give the model more variety and spatial diversity — more robust model.
 
         **How much data does this generate?**
         Each ROI is split into ~20 small patches. Two ROIs = **~40 patches per image**.
-        Across 3 training images that's **~120 samples per wine type** from just 6 files.
+        Across 3 training images that's **~120 samples per class** from just 6 files.
 
         **Placement tips:**
-        - ✅ Both boxes on the **liquid** part of the wine
-        - ✅ Spread them apart — left and right of the glass
-        - ❌ Avoid glass edges, reflections, stem or background
+        - ✅ Both boxes on the **sample** area
+        - ✅ Spread them apart for more diversity
+        - ❌ Avoid edges, reflections, or background
         """)
 
     if not st.session_state.tiff_files:
@@ -798,10 +756,8 @@ elif st.session_state.step == 1:
         rw2 = st.slider("Width",   30, 400, 150,     10, key='rw2')
         rh2 = st.slider("Height",  30, 400, 120,     10, key='rh2')
 
-    roi1 = (max(0,cx1-rw1//2), max(0,cy1-rh1//2),
-            min(W,cx1+rw1//2), min(H,cy1+rh1//2))
-    roi2 = (max(0,cx2-rw2//2), max(0,cy2-rh2//2),
-            min(W,cx2+rw2//2), min(H,cy2+rh2//2))
+    roi1 = (max(0,cx1-rw1//2), max(0,cy1-rh1//2), min(W,cx1+rw1//2), min(H,cy1+rh1//2))
+    roi2 = (max(0,cx2-rw2//2), max(0,cy2-rh2//2), min(W,cx2+rw2//2), min(H,cy2+rh2//2))
 
     with col_preview:
         tab_full, tab_r1, tab_r2 = st.tabs(["🖼️ Full Image","🔵 ROI 1","🟠 ROI 2"])
@@ -809,39 +765,32 @@ elif st.session_state.step == 1:
             fig, ax = plt.subplots(figsize=(7,5))
             ax.imshow(disp_img(raw), cmap='gray', aspect='auto')
             for (x0,y0,x1_,y1_),c in [(roi1,'dodgerblue'),(roi2,'orange')]:
-                ax.add_patch(patches.Rectangle((x0,y0),x1_-x0,y1_-y0,
-                    lw=2,edgecolor=c,facecolor=c,alpha=0.2))
-                ax.add_patch(patches.Rectangle((x0,y0),x1_-x0,y1_-y0,
-                    lw=2,edgecolor=c,facecolor='none'))
+                ax.add_patch(patches.Rectangle((x0,y0),x1_-x0,y1_-y0,lw=2,edgecolor=c,facecolor=c,alpha=0.2))
+                ax.add_patch(patches.Rectangle((x0,y0),x1_-x0,y1_-y0,lw=2,edgecolor=c,facecolor='none'))
             ax.axis('off'); plt.tight_layout()
             st.pyplot(fig,use_container_width=True); plt.close(fig)
         with tab_r1:
             fig,ax = plt.subplots(figsize=(5,4))
-            ax.imshow(disp_img(raw)[roi1[1]:roi1[3],roi1[0]:roi1[2]],
-                      cmap='gray',interpolation='nearest')
+            ax.imshow(disp_img(raw)[roi1[1]:roi1[3],roi1[0]:roi1[2]],cmap='gray',interpolation='nearest')
             ax.set_title(f"{roi1[2]-roi1[0]}×{roi1[3]-roi1[1]} px")
             ax.axis('off'); plt.tight_layout()
             st.pyplot(fig,use_container_width=True); plt.close(fig)
         with tab_r2:
             fig,ax = plt.subplots(figsize=(5,4))
-            ax.imshow(disp_img(raw)[roi2[1]:roi2[3],roi2[0]:roi2[2]],
-                      cmap='gray',interpolation='nearest')
+            ax.imshow(disp_img(raw)[roi2[1]:roi2[3],roi2[0]:roi2[2]],cmap='gray',interpolation='nearest')
             ax.set_title(f"{roi2[2]-roi2[0]}×{roi2[3]-roi2[1]} px")
             ax.axis('off'); plt.tight_layout()
             st.pyplot(fig,use_container_width=True); plt.close(fig)
 
     st.markdown(
-        f"<div style='background:#0d1117;border:1px solid #30363d;border-radius:8px;"
-        f"padding:12px 16px;margin:8px 0'>"
-        f"<b style='color:dodgerblue'>ROI 1:</b> "
-        f"X0={roi1[0]} Y0={roi1[1]} X1={roi1[2]} Y1={roi1[3]}"
+        f"<div style='background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);"
+        f"border-radius:10px;padding:12px 16px;margin:8px 0'>"
+        f"<b style='color:dodgerblue'>ROI 1:</b> X0={roi1[0]} Y0={roi1[1]} X1={roi1[2]} Y1={roi1[3]}"
         f"&nbsp;&nbsp;&nbsp;"
-        f"<b style='color:orange'>ROI 2:</b> "
-        f"X0={roi2[0]} Y0={roi2[1]} X1={roi2[2]} Y1={roi2[3]}"
+        f"<b style='color:orange'>ROI 2:</b> X0={roi2[0]} Y0={roi2[1]} X1={roi2[2]} Y1={roi2[3]}"
         f"</div>", unsafe_allow_html=True)
 
-    if st.button("✅ Confirm ROIs & Go to Training →",
-                 type="primary", use_container_width=True):
+    if st.button("✅ Confirm ROIs & Go to Training →", type="primary", use_container_width=True):
         st.session_state.rois = [roi1, roi2]
         st.session_state.step = 2
         st.rerun()
@@ -865,24 +814,23 @@ elif st.session_state.step == 2:
         **Pipeline:**
         1. Each TIFF is demosaiced into 81 spectral band images
         2. Each ROI is divided into 30×30 px patches → each patch = one training sample (162 features)
-        3. Ensemble classifier (SVM + RF + XGB) learns the spectral signature of each wine
+        3. Ensemble classifier learns the spectral signature of each class
 
         **Data generated:**
         ```
         1 image × 2 ROIs × ~20 patches = 40 samples
-        3 images × 40 patches = 120 samples per wine type
+        3 images × 40 patches = 120 samples per class
         ```
-        **Leave-One-Image-Out validation:** trained on 5 images, tested on 1, repeated 6 times.
+        **Leave-One-Image-Out validation:** trained on N-1 images, tested on 1 — no data leakage.
         """)
 
     st.markdown("### 🧠 Classifier Selection")
     col_table, col_pick = st.columns([3,2])
-
     with col_table:
-        st.markdown("**Research comparison — hyperspectral wine classification:**")
+        st.markdown("**Research comparison — hyperspectral classification:**")
         st.markdown("""
-| Model | Small data? | Wine HSI? | Speed | Recommended |
-|-------|-------------|-----------|-------|-------------|
+| Model | Small data? | HSI proven? | Speed | Recommended |
+|-------|-------------|-------------|-------|-------------|
 | **Ensemble (SVM+RF+XGB)** | ✅ Best | ✅ Yes | ✅ Fast | ⭐ Default |
 | SVM RBF | ✅ Best | ✅ Yes | ✅ Fast | ✅ Good |
 | Random Forest | ✅ Good | ✅ Yes | ✅ Fast | ✅ Good |
@@ -890,11 +838,9 @@ elif st.session_state.step == 2:
 | CNN / Deep Learning | ❌ Needs 1000s | ✅ Best | ❌ Slow | ⚠️ Not yet |
         """)
         st.caption("Sources: ScienceDirect 2024, PubMed, ACM Digital Library")
-
     with col_pick:
         model_choice = st.radio("Select classifier:", [
-            "⭐ Ensemble (SVM + RF + XGB)",
-            "SVM RBF", "Random Forest", "XGBoost"])
+            "⭐ Ensemble (SVM + RF + XGB)", "SVM RBF", "Random Forest", "XGBoost"])
         descs = {
             "Ensemble":      "3 models vote together — most robust for small datasets.",
             "SVM RBF":       "Excellent for high-dimensional spectral data. F1 up to 0.99.",
@@ -911,7 +857,6 @@ elif st.session_state.step == 2:
         rois     = st.session_state.rois
         labelled = [(n,d) for n,d in st.session_state.tiff_files
                     if st.session_state.file_labels.get(n,'Unknown') != 'Unknown']
-
         prog = st.progress(0, text="Starting...")
         X_all, y_all, groups, raw_spectra = [], [], [], {}
         img_id = 0
@@ -926,15 +871,13 @@ elif st.session_state.step == 2:
                     X_all.append(fv); y_all.append(label); groups.append(img_id)
                 if roi == rois[0]:
                     m = np.array([ch[roi[1]//TILE_H:roi[3]//TILE_H,
-                                     roi[0]//TILE_W:roi[2]//TILE_W].mean()
-                                  for ch in channels])
+                                     roi[0]//TILE_W:roi[2]//TILE_W].mean() for ch in channels])
                     raw_spectra.setdefault(label,[]).append(m)
             img_id += 1
 
         X, y, groups = np.array(X_all), np.array(y_all), np.array(groups)
         all_labels = sorted(np.unique(y).tolist())
         n_cls = len(all_labels)
-
         t1,t2,t3,t4 = st.tabs(["📈 Spectra","🔬 PCA","📊 Confusion","📋 Per-Image"])
 
         with t1:
@@ -972,52 +915,45 @@ elif st.session_state.step == 2:
                 mask = y==lbl; col = WINE_COLORS.get(lbl,'gray')
                 ax.scatter(Xp[mask,0],Xp[mask,1],c=col,alpha=0.2,s=8,label=lbl)
                 cx_,cy_ = Xp[mask,0].mean(),Xp[mask,1].mean()
-                ax.scatter(cx_,cy_,c=col,s=220,marker='*',
-                           edgecolors='black',lw=0.8,zorder=5)
-                ax.annotate(lbl,(cx_,cy_),xytext=(6,4),
-                            textcoords='offset points',fontsize=11,
-                            fontweight='bold',color=col)
+                ax.scatter(cx_,cy_,c=col,s=220,marker='*',edgecolors='black',lw=0.8,zorder=5)
+                ax.annotate(lbl,(cx_,cy_),xytext=(6,4),textcoords='offset points',
+                            fontsize=11,fontweight='bold',color=col)
             ax.set_title("PCA clusters (stars = centres)")
             ax.legend(markerscale=4,fontsize=9); ax.grid(True,alpha=0.2)
             plt.tight_layout()
             st.pyplot(fig2,use_container_width=True); plt.close(fig2)
 
         try:
-            from xgboost import XGBClassifier
-            has_xgb = True
+            from xgboost import XGBClassifier; has_xgb = True
         except ImportError:
             has_xgb = False
 
         sel = "Ensemble" if "Ensemble" in model_choice else model_choice
         if sel == "Ensemble":
-            ests = [('svm', SVC(kernel='rbf',C=10,gamma='scale',
-                                probability=True,random_state=42)),
+            ests = [('svm', SVC(kernel='rbf',C=10,gamma='scale',probability=True,random_state=42)),
                     ('rf',  RandomForestClassifier(n_estimators=200,random_state=42))]
             if has_xgb:
                 ests.append(('xgb', XGBClassifier(n_estimators=100,random_state=42,
                                                    eval_metric='mlogloss',verbosity=0)))
-            clf      = VotingClassifier(estimators=ests, voting='soft')
+            clf = VotingClassifier(estimators=ests, voting='soft')
             clf_name = f"Ensemble (SVM + RF{' + XGB' if has_xgb else ''})"
         elif sel == "SVM RBF":
-            clf      = SVC(kernel='rbf',C=10,gamma='scale',probability=True,random_state=42)
+            clf = SVC(kernel='rbf',C=10,gamma='scale',probability=True,random_state=42)
             clf_name = "SVM with RBF Kernel"
         elif sel == "Random Forest":
-            clf      = RandomForestClassifier(n_estimators=200,random_state=42)
+            clf = RandomForestClassifier(n_estimators=200,random_state=42)
             clf_name = "Random Forest (200 trees)"
         else:
             if has_xgb:
-                clf      = XGBClassifier(n_estimators=100,random_state=42,
-                                         eval_metric='mlogloss',verbosity=0)
+                clf = XGBClassifier(n_estimators=100,random_state=42,eval_metric='mlogloss',verbosity=0)
                 clf_name = "XGBoost"
             else:
-                clf      = SVC(kernel='rbf',C=10,gamma='scale',
-                               probability=True,random_state=42)
+                clf = SVC(kernel='rbf',C=10,gamma='scale',probability=True,random_state=42)
                 clf_name = "SVM RBF (XGBoost unavailable)"
 
         model = Pipeline([('scaler',StandardScaler()),('clf',clf)])
         prog.progress(1.0, text=f"Training {clf_name}...")
         st.markdown(f"**Using:** `{clf_name}`")
-
         cv     = GroupKFold(n_splits=img_id)
         y_pred = cross_val_predict(model, X, y, cv=cv, groups=groups)
 
@@ -1026,8 +962,7 @@ elif st.session_state.step == 2:
             fig3,ax3 = plt.subplots(figsize=(max(5,n_cls*1.3),max(4,n_cls*1.1)))
             ax3.imshow(cm,cmap='Blues')
             ax3.set_xticks(range(n_cls)); ax3.set_yticks(range(n_cls))
-            ax3.set_xticklabels(all_labels,rotation=45)
-            ax3.set_yticklabels(all_labels)
+            ax3.set_xticklabels(all_labels,rotation=45); ax3.set_yticklabels(all_labels)
             ax3.set_xlabel('Predicted'); ax3.set_ylabel('Actual')
             ax3.set_title('Confusion Matrix (Leave-One-Image-Out)')
             for i in range(n_cls):
@@ -1060,18 +995,16 @@ elif st.session_state.step == 2:
         st.session_state.training_done = True
         prog.empty()
         st.success(f"✅ Training complete using {clf_name}!")
-
         if st.button("Go to Predict →", type="primary", use_container_width=True):
-            st.session_state.step = 3
-            st.rerun()
+            st.session_state.step = 3; st.rerun()
 
 # ============================================================
 #  STEP 4 — Predict
 # ============================================================
 elif st.session_state.step == 3:
     st.markdown("""<div class='step-header'>
-        <h2>🔍 Step 4 — Predict Unknown Wines</h2>
-        <p>Upload a ZIP or individual TIFFs. The model predicts each one.</p>
+        <h2>🔍 Step 4 — Predict Unknown Samples</h2>
+        <p>Upload TIFF files or a ZIP. The model predicts each one.</p>
     </div>""", unsafe_allow_html=True)
 
     if not st.session_state.training_done or st.session_state.model is None:
@@ -1093,8 +1026,14 @@ elif st.session_state.step == 3:
         - **>90%** — very confident  |  **70–90%** — confident  |  **50–70%** — uncertain
         """)
 
-    tab_zip, tab_single, tab_drive = st.tabs(["📦 ZIP","🖼️ Single TIFF","☁️ Google Drive"])
+    tab_single, tab_zip, tab_drive = st.tabs(["🖼️ Individual TIFFs", "📦 ZIP", "☁️ Google Drive"])
     pred_files = []
+
+    with tab_single:
+        tfs = st.file_uploader("Upload TIFF files", type=['tiff','tif'],
+                               accept_multiple_files=True, label_visibility='collapsed')
+        for tf in (tfs or []):
+            pred_files.append((tf.name, tf.read()))
 
     with tab_zip:
         zf2 = st.file_uploader("Upload ZIP", type=['zip'], label_visibility='collapsed')
@@ -1105,13 +1044,6 @@ elif st.session_state.step == 3:
                     if nm.lower().endswith(('.tiff','.tif')) and \
                        not os.path.basename(nm).startswith('.'):
                         pred_files.append((os.path.basename(nm), z.read(nm)))
-
-    with tab_single:
-        tfs = st.file_uploader("Upload TIFFs", type=['tiff','tif'],
-                               accept_multiple_files=True,
-                               label_visibility='collapsed')
-        for tf in (tfs or []):
-            pred_files.append((tf.name, tf.read()))
 
     with tab_drive:
         gid2 = st.text_input("Google Drive ZIP File ID", key='gid2')
@@ -1138,7 +1070,6 @@ elif st.session_state.step == 3:
         if st.button("🔍 Run Predictions", type="primary", use_container_width=True):
             prog2   = st.progress(0, text="Predicting...")
             results = []
-
             for i,(name,data) in enumerate(pred_files):
                 prog2.progress((i+1)/len(pred_files), text=f"Predicting {name}...")
                 raw, channels = load_and_demosaic(data)
@@ -1151,13 +1082,11 @@ elif st.session_state.step == 3:
                 pred  = model.classes_[np.argmax(avg)]
                 conf  = dict(zip(model.classes_,(avg*100).round(1)))
                 agr   = (np.argmax(np.vstack(all_probas),axis=1)==np.argmax(avg)).mean()*100
-                results.append({'file':name,'raw':raw,'pred':pred,
-                                 'conf':conf,'agreement':agr,
-                                 'n_patches':sum(len(p) for p in all_probas)})
-
+                results.append({'file':name,'raw':raw,'pred':pred,'conf':conf,
+                                 'agreement':agr,'n_patches':sum(len(p) for p in all_probas)})
             prog2.empty()
 
-            st.subheader("🗂️ Results by Wine Type")
+            st.subheader("🗂️ Results by Class")
             cols = st.columns(max(1,len(all_cls)))
             for ci,cls in enumerate(all_cls):
                 matched = [r for r in results if r['pred']==cls]
@@ -1168,20 +1097,17 @@ elif st.session_state.step == 3:
                         f"border-radius:10px;padding:12px;text-align:center;min-height:80px'>"
                         f"<b style='color:{col};font-size:20px'>{cls}</b><br>"
                         f"<span style='font-size:12px;color:#aaa'>{len(matched)} image(s)</span><br><br>"
-                        + "".join([
-                            f"<span style='display:block;font-size:12px;padding:2px 0'>"
-                            f"📄 {r['file']}<br>"
-                            f"<b style='color:{col}'>{r['conf'][r['pred']]:.1f}%</b></span>"
-                            for r in matched
-                        ]) + "</div>", unsafe_allow_html=True)
+                        + "".join([f"<span style='display:block;font-size:12px;padding:2px 0'>"
+                                   f"📄 {r['file']}<br>"
+                                   f"<b style='color:{col}'>{r['conf'][r['pred']]:.1f}%</b></span>"
+                                   for r in matched]) + "</div>", unsafe_allow_html=True)
 
             st.subheader("📋 Detailed Results")
-            st.dataframe([{
-                'File':r['file'],'Prediction':r['pred'],
-                'Confidence':f"{r['conf'][r['pred']]:.1f}%",
-                'Patch Agreement':f"{r['agreement']:.0f}%",
-                'Patches':r['n_patches']
-            } for r in results], use_container_width=True)
+            st.dataframe([{'File':r['file'],'Prediction':r['pred'],
+                           'Confidence':f"{r['conf'][r['pred']]:.1f}%",
+                           'Patch Agreement':f"{r['agreement']:.0f}%",
+                           'Patches':r['n_patches']} for r in results],
+                         use_container_width=True)
 
             st.subheader("🖼️ Image Overview")
             gcols = st.columns(min(3,len(results)))
