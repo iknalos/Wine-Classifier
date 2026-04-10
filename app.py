@@ -1134,7 +1134,7 @@ elif st.session_state.step == 2:
 
         for i,(name,data) in enumerate(labelled):
             label = st.session_state.file_labels[name]
-            prog.progress((i+1)/len(labelled), text=f"Processing {name}...")
+            prog.progress((i+1)/(len(labelled)+2), text=f"Extracting features: {name}...")
             raw, channels = load_and_demosaic(data)
             for roi in rois:
                 feats = extract_patches(channels, *roi)
@@ -1150,53 +1150,6 @@ elif st.session_state.step == 2:
         X, y, groups = np.array(X_all), np.array(y_all), np.array(groups)
         all_labels = sorted(np.unique(y).tolist())
         n_cls = len(all_labels)
-
-        t1,t2,t3,t4 = st.tabs(["📈 Spectra","🔬 PCA","📊 Confusion","📋 Per-Image"])
-
-        with t1:
-            fig,axes = plt.subplots(2,1,figsize=(13,8))
-            means_by_class = {}
-            for lbl,spectra in raw_spectra.items():
-                arr = np.array(spectra); m,s = arr.mean(0),arr.std(0)
-                means_by_class[lbl] = m
-                col = WINE_COLORS.get(lbl,'gray')
-                axes[0].plot(m,color=col,lw=2,label=lbl)
-                axes[0].fill_between(range(N_BANDS),m-s,m+s,alpha=0.15,color=col)
-            axes[0].set_title("Spectral Signatures — mean ± std")
-            axes[0].set_xlabel("Band"); axes[0].set_ylabel("Intensity")
-            axes[0].legend(fontsize=9); axes[0].grid(True,alpha=0.3)
-            dm = np.zeros((n_cls,n_cls))
-            for i,l1 in enumerate(all_labels):
-                for j,l2 in enumerate(all_labels):
-                    dm[i,j] = np.abs(means_by_class[l1]-means_by_class[l2]).mean()
-            im = axes[1].imshow(dm,cmap='YlOrRd')
-            axes[1].set_xticks(range(n_cls)); axes[1].set_yticks(range(n_cls))
-            axes[1].set_xticklabels(all_labels); axes[1].set_yticklabels(all_labels)
-            axes[1].set_title("Spectral Distance Heatmap")
-            plt.colorbar(im,ax=axes[1])
-            for i in range(n_cls):
-                for j in range(n_cls):
-                    axes[1].text(j,i,f"{dm[i,j]:.1f}",ha='center',va='center',
-                                 fontsize=9,color='white' if dm[i,j]>dm.max()*0.6 else 'black')
-            plt.tight_layout()
-            st.pyplot(fig,use_container_width=True); plt.close(fig)
-
-        with t2:
-            Xp = PCA(n_components=2).fit_transform(StandardScaler().fit_transform(X))
-            fig2,ax = plt.subplots(figsize=(8,5))
-            for lbl in np.unique(y):
-                mask = y==lbl; col = WINE_COLORS.get(lbl,'gray')
-                ax.scatter(Xp[mask,0],Xp[mask,1],c=col,alpha=0.2,s=8,label=lbl)
-                cx_,cy_ = Xp[mask,0].mean(),Xp[mask,1].mean()
-                ax.scatter(cx_,cy_,c=col,s=220,marker='*',
-                           edgecolors='black',lw=0.8,zorder=5)
-                ax.annotate(lbl,(cx_,cy_),xytext=(6,4),
-                            textcoords='offset points',fontsize=11,
-                            fontweight='bold',color=col)
-            ax.set_title("PCA clusters (stars = centres)")
-            ax.legend(markerscale=4,fontsize=9); ax.grid(True,alpha=0.2)
-            plt.tight_layout()
-            st.pyplot(fig2,use_container_width=True); plt.close(fig2)
 
         try:
             from xgboost import XGBClassifier
@@ -1231,51 +1184,190 @@ elif st.session_state.step == 2:
                 clf_name = "SVM RBF (XGBoost unavailable)"
 
         model = Pipeline([('scaler',StandardScaler()),('clf',clf)])
-        prog.progress(1.0, text=f"Training {clf_name}...")
-        st.markdown(f"**Using:** `{clf_name}`")
+        prog.progress((img_id+1)/(img_id+2), text=f"Running cross-validation ({img_id}-fold)...")
+        cv_obj  = GroupKFold(n_splits=img_id)
+        y_pred  = cross_val_predict(model, X, y, cv=cv_obj, groups=groups)
 
-        cv     = GroupKFold(n_splits=img_id)
-        y_pred = cross_val_predict(model, X, y, cv=cv, groups=groups)
+        prog.progress(1.0, text="Fitting final model...")
+        model.fit(X, y)
 
+        # ── Store everything in session state so tabs render on rerun ──
+        st.session_state.model         = model
+        st.session_state.training_done = True
+        st.session_state.train_results = {
+            'X': X, 'y': y, 'groups': groups, 'y_pred': y_pred,
+            'all_labels': all_labels, 'n_cls': n_cls,
+            'raw_spectra': raw_spectra, 'labelled_names': [n for n,_ in labelled],
+            'img_id': img_id, 'clf_name': clf_name,
+        }
+        prog.empty()
+        st.rerun()  # rerun so charts render outside the button block (no stuck tabs)
+
+    # ── Render results (always, after training done) ──
+    if st.session_state.training_done and 'train_results' in st.session_state:
+        R = st.session_state.train_results
+        X          = R['X'];          y           = R['y']
+        groups     = R['groups'];     y_pred      = R['y_pred']
+        all_labels = R['all_labels']; n_cls       = R['n_cls']
+        raw_spectra= R['raw_spectra']; img_id     = R['img_id']
+        clf_name   = R['clf_name'];   lbl_names   = R['labelled_names']
+
+        st.success(f"✅ Training complete — **{clf_name}**")
+
+        # Shared plot style
+        STYLE = {
+            'axes.facecolor':  '#0d0d18',
+            'figure.facecolor':'#0a0a0f',
+            'axes.edgecolor':  '#2a2a40',
+            'axes.labelcolor': '#cccccc',
+            'xtick.color':     '#888888',
+            'ytick.color':     '#888888',
+            'text.color':      '#cccccc',
+            'grid.color':      '#1e1e30',
+            'axes.titlecolor': '#ffffff',
+            'axes.spines.top': False,
+            'axes.spines.right': False,
+        }
+
+        t1,t2,t3,t4 = st.tabs(["📈 Spectra","🔬 PCA","📊 Confusion","📋 Per-Image"])
+
+        # ── Tab 1: Spectral signatures ──
+        with t1:
+            with plt.rc_context(STYLE):
+                fig, axes = plt.subplots(2, 1, figsize=(13, 9))
+                means_by_class = {}
+                band_labels = [f"B{i+1}" if i % 9 == 0 else "" for i in range(N_BANDS)]
+                for lbl, spectra in raw_spectra.items():
+                    arr = np.array(spectra); m, s = arr.mean(0), arr.std(0)
+                    means_by_class[lbl] = m
+                    col = WINE_COLORS.get(lbl, 'gray')
+                    axes[0].plot(m, color=col, lw=2, label=lbl)
+                    axes[0].fill_between(range(N_BANDS), m-s, m+s, alpha=0.15, color=col)
+                axes[0].set_title("Spectral Signatures — Mean ± Std Dev", fontsize=13, fontweight='bold', pad=10)
+                axes[0].set_xlabel("Spectral Band Index  (0–80, 9×9 mosaic filter)", fontsize=10)
+                axes[0].set_ylabel("Raw Pixel Intensity (DN)", fontsize=10)
+                axes[0].set_xlim(0, N_BANDS-1)
+                # Mark 9-band tile boundaries
+                for b in range(0, N_BANDS, 9):
+                    axes[0].axvline(b, color='#2a2a40', lw=0.8, ls='--', zorder=0)
+                axes[0].legend(fontsize=9, framealpha=0.3, loc='upper right')
+                axes[0].grid(True, alpha=0.3, axis='y')
+
+                dm = np.zeros((n_cls, n_cls))
+                for i, l1 in enumerate(all_labels):
+                    for j, l2 in enumerate(all_labels):
+                        dm[i,j] = np.abs(means_by_class[l1] - means_by_class[l2]).mean()
+                im = axes[1].imshow(dm, cmap='YlOrRd', aspect='auto')
+                axes[1].set_xticks(range(n_cls)); axes[1].set_yticks(range(n_cls))
+                axes[1].set_xticklabels(all_labels, rotation=45, ha='right')
+                axes[1].set_yticklabels(all_labels)
+                axes[1].set_title("Mean Spectral Distance Between Classes", fontsize=12, fontweight='bold', pad=10)
+                axes[1].set_xlabel("Class", fontsize=10)
+                axes[1].set_ylabel("Class", fontsize=10)
+                cb = plt.colorbar(im, ax=axes[1], fraction=0.046, pad=0.04)
+                cb.set_label("Avg |intensity difference| (DN)", fontsize=9)
+                for i in range(n_cls):
+                    for j in range(n_cls):
+                        axes[1].text(j, i, f"{dm[i,j]:.1f}", ha='center', va='center',
+                                     fontsize=9, color='white' if dm[i,j] > dm.max()*0.6 else '#111')
+                plt.tight_layout(h_pad=2.5)
+                st.pyplot(fig, use_container_width=True); plt.close(fig)
+
+        # ── Tab 2: PCA ──
+        with t2:
+            with plt.rc_context(STYLE):
+                sc  = StandardScaler()
+                pca = PCA(n_components=2)
+                Xp  = pca.fit_transform(sc.fit_transform(X))
+                ev  = pca.explained_variance_ratio_ * 100
+                fig2, ax = plt.subplots(figsize=(9, 6))
+                for lbl in np.unique(y):
+                    mask = y == lbl; col = WINE_COLORS.get(lbl, 'gray')
+                    ax.scatter(Xp[mask,0], Xp[mask,1], c=col, alpha=0.25, s=12, label=lbl)
+                    cx_, cy_ = Xp[mask,0].mean(), Xp[mask,1].mean()
+                    ax.scatter(cx_, cy_, c=col, s=260, marker='*',
+                               edgecolors='white', lw=0.8, zorder=5)
+                    ax.annotate(lbl, (cx_, cy_), xytext=(8, 4),
+                                textcoords='offset points', fontsize=11,
+                                fontweight='bold', color=col,
+                                bbox=dict(boxstyle='round,pad=0.2', fc='#0a0a0f', ec='none', alpha=0.7))
+                ax.set_title("PCA — Spectral Feature Space (2 components)", fontsize=13, fontweight='bold', pad=10)
+                ax.set_xlabel(f"PC 1  ({ev[0]:.1f}% variance explained)", fontsize=10)
+                ax.set_ylabel(f"PC 2  ({ev[1]:.1f}% variance explained)", fontsize=10)
+                ax.legend(markerscale=3, fontsize=9, framealpha=0.3, title="Class", title_fontsize=9)
+                ax.grid(True, alpha=0.25)
+                plt.tight_layout()
+                st.pyplot(fig2, use_container_width=True); plt.close(fig2)
+
+        # ── Tab 3: Confusion matrix ──
         with t3:
-            cm = confusion_matrix(y,y_pred,labels=all_labels)
-            fig3,ax3 = plt.subplots(figsize=(max(5,n_cls*1.3),max(4,n_cls*1.1)))
-            ax3.imshow(cm,cmap='Blues')
-            ax3.set_xticks(range(n_cls)); ax3.set_yticks(range(n_cls))
-            ax3.set_xticklabels(all_labels,rotation=45)
-            ax3.set_yticklabels(all_labels)
-            ax3.set_xlabel('Predicted'); ax3.set_ylabel('Actual')
-            ax3.set_title('Confusion Matrix (Leave-One-Image-Out)')
-            for i in range(n_cls):
-                for j in range(n_cls):
-                    ax3.text(j,i,cm[i,j],ha='center',va='center',fontsize=13,
-                             color='white' if cm[i,j]>cm.max()/2 else 'black')
-            plt.tight_layout()
-            st.pyplot(fig3,use_container_width=True); plt.close(fig3)
+            cm = confusion_matrix(y, y_pred, labels=all_labels)
+            with plt.rc_context(STYLE):
+                fig3, ax3 = plt.subplots(figsize=(max(5, n_cls*1.4), max(4.5, n_cls*1.2)))
+                im3 = ax3.imshow(cm, cmap='Blues', vmin=0)
+                ax3.set_xticks(range(n_cls)); ax3.set_yticks(range(n_cls))
+                ax3.set_xticklabels(all_labels, rotation=45, ha='right', fontsize=11)
+                ax3.set_yticklabels(all_labels, fontsize=11)
+                ax3.set_xlabel("Predicted Class", fontsize=11, labelpad=8)
+                ax3.set_ylabel("True Class", fontsize=11, labelpad=8)
+                ax3.set_title("Confusion Matrix — Leave-One-Image-Out CV", fontsize=13, fontweight='bold', pad=12)
+                cb3 = plt.colorbar(im3, ax=ax3, fraction=0.046, pad=0.04)
+                cb3.set_label("Patch count", fontsize=9)
+                for i in range(n_cls):
+                    for j in range(n_cls):
+                        ax3.text(j, i, str(cm[i,j]), ha='center', va='center', fontsize=13,
+                                 fontweight='bold',
+                                 color='white' if cm[i,j] > cm.max()*0.5 else '#333')
+                # Accuracy on diagonal
+                diag_acc = cm.diagonal().sum() / cm.sum() * 100
+                ax3.set_title(
+                    f"Confusion Matrix — Leave-One-Image-Out CV   (patch accuracy {diag_acc:.1f}%)",
+                    fontsize=12, fontweight='bold', pad=12)
+                plt.tight_layout()
+                st.pyplot(fig3, use_container_width=True); plt.close(fig3)
 
+        # ── Tab 4: Per-image results ──
         with t4:
             rows = []; correct = 0
             for gid in range(img_id):
-                mask     = groups==gid
+                mask     = groups == gid
                 true_lbl = y[mask][0]
                 votes    = {l:(y_pred[mask]==l).sum() for l in np.unique(y)}
-                img_pred = max(votes,key=votes.get)
-                agree    = votes[img_pred]/mask.sum()*100
-                ok       = "✅" if img_pred==true_lbl else "❌"
-                rows.append({'File':labelled[gid][0],'True':true_lbl,
-                             'Predicted':img_pred,'Agreement':f"{agree:.0f}%",'':ok})
-                if img_pred==true_lbl: correct+=1
-            st.dataframe(rows,use_container_width=True)
-            c1,c2,c3 = st.columns(3)
-            c1.metric("Image Accuracy", f"{correct/img_id*100:.0f}%")
-            c2.metric("Correct", f"{correct}/{img_id}")
-            c3.metric("Total Patches", f"{len(X):,}")
+                img_pred = max(votes, key=votes.get)
+                agree    = votes[img_pred] / mask.sum() * 100
+                ok       = "✅" if img_pred == true_lbl else "❌"
+                rows.append({'File': lbl_names[gid], 'True': true_lbl,
+                             'Predicted': img_pred, 'Patch Agreement': f"{agree:.0f}%", 'Result': ok})
+                if img_pred == true_lbl: correct += 1
 
-        model.fit(X,y)
-        st.session_state.model         = model
-        st.session_state.training_done = True
-        prog.empty()
-        st.success(f"✅ Training complete using {clf_name}!")
+            mc1, mc2, mc3 = st.columns(3)
+            mc1.metric("Image-Level Accuracy", f"{correct/img_id*100:.0f}%")
+            mc2.metric("Correct / Total",       f"{correct} / {img_id}")
+            mc3.metric("Total Patches",          f"{len(X):,}")
+            st.dataframe(rows, use_container_width=True)
+
+            # Bar chart of patch agreement per image
+            with plt.rc_context(STYLE):
+                fig4, ax4 = plt.subplots(figsize=(max(8, img_id*0.9), 4))
+                for gi, row in enumerate(rows):
+                    col = WINE_COLORS.get(row['True'], '#888')
+                    val = float(row['Patch Agreement'].replace('%',''))
+                    ax4.bar(gi, val, color=col, alpha=0.85,
+                            edgecolor='white' if row['Result']=='✅' else '#e94560', lw=1.5)
+                    ax4.text(gi, val+1, f"{val:.0f}%", ha='center', va='bottom', fontsize=8, color='#ccc')
+                ax4.axhline(50, color='#e94560', lw=1, ls='--', alpha=0.5, label='50% threshold')
+                ax4.set_xticks(range(img_id))
+                ax4.set_xticklabels([r['File'].replace('.tiff','').replace('.tif','')
+                                     for r in rows], rotation=25, ha='right', fontsize=8)
+                ax4.set_ylabel("Patch Agreement (%)", fontsize=10)
+                ax4.set_xlabel("Training Image", fontsize=10)
+                ax4.set_title("Patch-Level Agreement per Training Image  (white border = correct, red = wrong)",
+                              fontsize=11, fontweight='bold', pad=10)
+                ax4.set_ylim(0, 115)
+                ax4.grid(True, alpha=0.2, axis='y')
+                ax4.legend(fontsize=9)
+                plt.tight_layout()
+                st.pyplot(fig4, use_container_width=True); plt.close(fig4)
 
         if st.button("Go to Predict →", type="primary", use_container_width=True):
             st.session_state.step = 3
